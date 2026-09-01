@@ -22,7 +22,6 @@ on:
         options:
         - 'cmcc_rax3000qy'
         - 'cmcc_rax3000q'
-        - 'aliyun_ap8220'
 
       SFE_BUILDIN:
         description: 'Build sfe'
@@ -105,7 +104,6 @@ jobs:
     strategy:
       matrix:
         include:
-        - ipq: aliyun_ap8220
         - ipq: cmcc_rax3000qy
         - ipq: cmcc_rax3000q
 
