@@ -1,7 +1,7 @@
 #!/bin/bash
 #=================================================
 
-OpenWrt_PATCH_FILE_DIR="${OpenWrt_PATCH_FILE_DIR:-openwrt-2512}"
+OpenWrt_PATCH_FILE_DIR="${OpenWrt_PATCH_FILE_DIR:-openwrt-2512-ipq}"
 # This script is from https://github.com/lunatickochiya/Lunatic-s805-rockchip-Action
 # Written By lunatickochiya
 # QQ group :286754582  https://jq.qq.com/?_wv=1027&k=5QgVYsC
@@ -119,7 +119,7 @@ function init_gh_env_2512() {
 	kernel66=$(echo "$PATCH_JSON_INPUT" | jq -r '.KERNEL66 // "0"')
 	local branch firmware
 	branch=$(echo "$PATCH_JSON_INPUT" | jq -r '.Branch // empty')
-	if [ "$repo_env_file" = "openwrt-ipq-2512" ] && [ -n "$branch" ]; then
+	if [ "$repo_env_file" = "openwrt-2512-ipq" ] && [ -n "$branch" ]; then
 		REPO_BRANCH="$branch"
 	fi
 	if [ "$kernel66" = "1" ]; then
@@ -182,10 +182,10 @@ function init_gh_env_common() {
 }
 function init_openwrt_patch_2512() {
 	case "$OpenWrt_PATCH_FILE_DIR" in
-		openwrt-2512|openwrt-ipq)
+		openwrt-2512-ipq|openwrt-2410-ipq)
 			;;
 		*)
-			device_config_error "This script only supports openwrt-2512 or openwrt-ipq"
+			device_config_error "This script only supports openwrt-2512-ipq or openwrt-2410-ipq"
 			return 1
 			;;
 	esac
@@ -203,7 +203,7 @@ function init_openwrt_patch_2512() {
 			return 1
 		fi
 		local bbr_patch_dir
-		if [ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-ipq" ]; then
+		if [ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-2410-ipq" ]; then
 			bbr_patch_dir="$OpenWrt_PATCH_FILE_DIR/mypatch-bbr-v3"
 		else
 			bbr_patch_dir="$OpenWrt_PATCH_FILE_DIR/mypatch-core-66/mypatch-bbr-v3"
@@ -356,7 +356,7 @@ function add_openwrt_ipq_sfe_66_compat() {
 	local target_dir="openwrt/target/linux/qualcommax/patches-6.6"
 	local patch_file
 
-	[ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-ipq" ] || return 0
+	[ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-2410-ipq" ] || return 0
 	for patch_file in \
 		"$patch_root/202603/0600-1-qca-nss-ecm-support-CORE.patch" \
 		"$patch_root/202603/0603-1-qca-nss-clients-add-qdisc-support.patch" \
@@ -378,7 +378,7 @@ function add_openwrt_ipq_sfe_612_compat() {
 	local target_dir="openwrt/target/linux/qualcommax/patches-6.12"
 	local patch_file
 
-	[ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-ipq" ] || return 0
+	[ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-2410-ipq" ] || return 0
 	for patch_file in \
 		"$patch_root/20250425/0600-1-qca-nss-ecm-support-CORE.patch" \
 		"$patch_root/20250425/0981-0-qca-skbuff-revert.patch"; do
@@ -551,8 +551,8 @@ function add_openwrt_sfe_612_2512() {
 	local turboacc_package_commit="c56760174a4b25e2a4f7566e3e4058e75e4ac9f8"
 	local temp_dir
 
-	if [ "$OpenWrt_PATCH_FILE_DIR" != "openwrt-2512" ] && [ "$OpenWrt_PATCH_FILE_DIR" != "openwrt-ipq" ]; then
-		device_config_error "add-openwrt-sfe-2512 requires openwrt-2512 or openwrt-ipq"
+	if [ "$OpenWrt_PATCH_FILE_DIR" != "openwrt-2512-ipq" ] && [ "$OpenWrt_PATCH_FILE_DIR" != "openwrt-2410-ipq" ]; then
+		device_config_error "add-openwrt-sfe-2512 requires openwrt-2512-ipq or openwrt-2410-ipq"
 		return 1
 	fi
 	if [[ "$Matrix_Target" != *-iptables && "$Matrix_Target" != *-nftables ]]; then
@@ -660,8 +660,8 @@ function add_openwrt_nosfe_ipq_2512() {
 	local config_name="${Target_CFG_Machine}-${Matrix_Target}.config"
 	local config_file="package-configs/$OpenWrt_PATCH_FILE_DIR/$config_name"
 
-	if [ "$OpenWrt_PATCH_FILE_DIR" != "openwrt-ipq" ]; then
-		device_config_error "add-openwrt-nosfe-ipq-2512 requires openwrt-ipq"
+	if [ "$OpenWrt_PATCH_FILE_DIR" != "openwrt-2410-ipq" ]; then
+		device_config_error "add-openwrt-nosfe-ipq-2512 requires openwrt-2410-ipq"
 		return 1
 	fi
 	if [ ! -s "$config_file" ]; then
@@ -706,7 +706,7 @@ function add_openwrt_ipq_sfe_feed_66_compat() {
 	local patch_source="$OpenWrt_PATCH_FILE_DIR/sfe-ipq-6.6/qca-nss-ecm/patches/1001-ecm-support-conntrack-chain-events.patch"
 	local patch_dir="openwrt/feeds/nss_packages/qca-nss-ecm/patches"
 
-	[ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-ipq" ] || return 0
+	[ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-2410-ipq" ] || return 0
 	kernel66_enabled || return 0
 	[ "${SFE_INPUT_STATUS:-false}" = "true" ] || return 0
 	if [ ! -s "$patch_source" ]; then
@@ -724,8 +724,8 @@ function add_openwrt_sfe_kmods() {
 }
 function add_openwrt_files() {
 	mkdir -p openwrt/feeds/lunatic7
-	if [ "$OpenWrt_REPO_ENV_FILE" = "openwrt-ipq-2512" ]; then
-	mv -f openwrt-2512/mypatch-core/0001-tools-add-liblzo-dependency-to-ccache.patch openwrt-ipq/mypatch-core/0001-tools-add-liblzo-dependency-to-ccache.patch
+	if [ "$OpenWrt_REPO_ENV_FILE" = "openwrt-2512-ipq" ]; then
+	mv -f openwrt-2512-ipq/mypatch-core/0001-tools-add-liblzo-dependency-to-ccache.patch openwrt-2410-ipq/mypatch-core/0001-tools-add-liblzo-dependency-to-ccache.patch
 	fi
 	mkdir -p openwrt/package/firmware/ipq-wifi/src
 	# [ -d $OpenWrt_PATCH_FILE_DIR/bin-files ] && cp -r $OpenWrt_PATCH_FILE_DIR/bin-files/ipq-wifi/src/* openwrt/package/firmware/ipq-wifi/src
@@ -750,7 +750,7 @@ function apply_openwrt_patch_dir() {
 	patch_files=("$patch_dir"/*.patch)
 	shopt -u nullglob
 	for patch_file in "${patch_files[@]}"; do
-		if [ "$OpenWrt_REPO_ENV_FILE" = "openwrt-ipq-2512" ]; then
+		if [ "$OpenWrt_REPO_ENV_FILE" = "openwrt-2512-ipq" ]; then
 			case "${patch_file##*/}" in
 				0001-generic-138-139-fix-in-6.6.patch|0001-ipq807x-add-support-for-Aliyun-AP8220-mod-for-ipq-24.patch|0003-CVE-2026-31431-FIX.patch)
 					echo "Skipping already included IPQ 25.12 patch: $patch_file"
@@ -783,13 +783,13 @@ function fix_openwrt_feeds() {
 	[ -d $OpenWrt_PATCH_FILE_DIR/feeds-telephony-patch ] && mv -f $OpenWrt_PATCH_FILE_DIR/feeds-telephony-patch openwrt/feeds/telephony/feeds-telephony-patch
 	[ -d $OpenWrt_PATCH_FILE_DIR/feeds-routing-patch ] && mv -f $OpenWrt_PATCH_FILE_DIR/feeds-routing-patch openwrt/feeds/routing/feeds-routing-patch
 
-	if [ "$OpenWrt_REPO_ENV_FILE" = "openwrt-ipq-2512" ]; then
+	if [ "$OpenWrt_REPO_ENV_FILE" = "openwrt-2512-ipq" ]; then
 	rm -rf openwrt/feeds/lunatic7/lunatic7-revert openwrt/feeds/luci/feeds-luci-patch openwrt/feeds/packages/feeds-packages-patch openwrt/feeds/telephony/feeds-telephony-patch openwrt/feeds/routing/feeds-routing-patch
-	[ -d openwrt-2512/lunatic7-revert ] && mv -f openwrt-2512/lunatic7-revert openwrt/feeds/lunatic7/lunatic7-revert
-	[ -d openwrt-2512/feeds-luci-patch ] && mv -f openwrt-2512/feeds-luci-patch openwrt/feeds/luci/feeds-luci-patch
-	[ -d openwrt-2512/feeds-packages-patch ] && mv -f openwrt-2512/feeds-packages-patch openwrt/feeds/packages/feeds-packages-patch
-	[ -d openwrt-2512/feeds-telephony-patch ] && mv -f openwrt-2512/feeds-telephony-patch openwrt/feeds/telephony/feeds-telephony-patch
-	[ -d openwrt-2512/feeds-routing-patch ] && mv -f openwrt-2512/feeds-routing-patch openwrt/feeds/routing/feeds-routing-patch
+	[ -d openwrt-2512-ipq/lunatic7-revert ] && mv -f openwrt-2512-ipq/lunatic7-revert openwrt/feeds/lunatic7/lunatic7-revert
+	[ -d openwrt-2512-ipq/feeds-luci-patch ] && mv -f openwrt-2512-ipq/feeds-luci-patch openwrt/feeds/luci/feeds-luci-patch
+	[ -d openwrt-2512-ipq/feeds-packages-patch ] && mv -f openwrt-2512-ipq/feeds-packages-patch openwrt/feeds/packages/feeds-packages-patch
+	[ -d openwrt-2512-ipq/feeds-telephony-patch ] && mv -f openwrt-2512-ipq/feeds-telephony-patch openwrt/feeds/telephony/feeds-telephony-patch
+	[ -d openwrt-2512-ipq/feeds-routing-patch ] && mv -f openwrt-2512-ipq/feeds-routing-patch openwrt/feeds/routing/feeds-routing-patch
 	fi
 	cd openwrt
 	autosetver_2512

@@ -10,7 +10,7 @@ OpenWrt_PATCH_FILE_DIR="openwrt-2410"
 }
 
 function init_openwrt_patch_file_dir_2410_nss() {
-OpenWrt_PATCH_FILE_DIR="openwrt-ipq"
+OpenWrt_PATCH_FILE_DIR="openwrt-2410-ipq"
 }
 
 function device_config_error() {
@@ -125,7 +125,7 @@ function init_gh_env_2410_ipq() {
 
 function init_gh_env_by_config_set() {
 	case "$OpenWrt_PATCH_FILE_DIR" in
-		openwrt-ipq)
+		openwrt-2410-ipq)
 			init_gh_env_2410_ipq
 			;;
 		*)
@@ -547,7 +547,7 @@ function add_openwrt_files() {
 # for 2410 end
 
 # for 2410 ipq
-	if [ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-ipq" ]; then
+	if [ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-2410-ipq" ]; then
 	[ -d $OpenWrt_PATCH_FILE_DIR/package-for-$OpenWrt_PATCH_FILE_DIR ] && cp -r $OpenWrt_PATCH_FILE_DIR/package-for-$OpenWrt_PATCH_FILE_DIR/* openwrt/package
 	fi
 
@@ -643,7 +643,7 @@ function fix_openwrt_feeds() {
 }
 
 function autosetver() {
-	if [ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-ipq" ]; then
+	if [ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-2410-ipq" ]; then
 		case "${Branch:-}" in
 			25.12-*) version=25.12-NSS ;;
 			*) version=24.10-NSS ;;
@@ -875,7 +875,7 @@ fi
 
 
 function add_openwrt_kmods() {
-	if [ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-ipq" ]; then
+	if [ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-2410-ipq" ]; then
 	add_all_ipq_nss_kmod_config
 	cd openwrt && make defconfig && cd ../
 	add_all_ipq_nss_kmod_config

@@ -10,7 +10,7 @@ OpenWrt_PATCH_FILE_DIR="openwrt-2410"
 }
 
 function init_openwrt_patch_file_dir_2410_nss() {
-OpenWrt_PATCH_FILE_DIR="openwrt-ipq"
+OpenWrt_PATCH_FILE_DIR="openwrt-2410-ipq"
 }
 
 function init_pkg_env() {
@@ -294,17 +294,17 @@ function add_openwrt_sfe_kernel_nss_patch() {
 		mkdir -p openwrt/target/linux/qualcommax/patches-6.6
 		mkdir -p openwrt/target/linux/qualcommax/patches-6.12
 	if [ "$Branch" = "24.10-nss-6.12" ]; then
-		cp -f openwrt-ipq/sfe-ipq-6.12/20250425/0600-1-qca-nss-ecm-support-CORE.patch openwrt/target/linux/qualcommax/patches-6.12/0600-1-qca-nss-ecm-support-CORE.patch
-		cp -f openwrt-ipq/sfe-ipq-6.12/20250425/0981-0-qca-skbuff-revert.patch openwrt/target/linux/qualcommax/patches-6.12/0981-0-qca-skbuff-revert.patch
+		cp -f openwrt-2410-ipq/sfe-ipq-6.12/20250425/0600-1-qca-nss-ecm-support-CORE.patch openwrt/target/linux/qualcommax/patches-6.12/0600-1-qca-nss-ecm-support-CORE.patch
+		cp -f openwrt-2410-ipq/sfe-ipq-6.12/20250425/0981-0-qca-skbuff-revert.patch openwrt/target/linux/qualcommax/patches-6.12/0981-0-qca-skbuff-revert.patch
 	fi
 
 	if [ "$Branch" = "24.10-nss-202502" ] || [ "$Branch" = "24.10-nss-202503" ] || [ "$Branch" = "24.10-nss-202504" ]; then
-		cp -f openwrt-ipq/sfe-ipq-6.6/202502/0600-1-qca-nss-ecm-support-CORE.patch openwrt/target/linux/qualcommax/patches-6.6/0600-1-qca-nss-ecm-support-CORE.patch
-		cp -f openwrt-ipq/sfe-ipq-6.6/202502/0603-1-qca-nss-clients-add-qdisc-support.patch openwrt/target/linux/qualcommax/patches-6.6/0603-1-qca-nss-clients-add-qdisc-support.patch
+		cp -f openwrt-2410-ipq/sfe-ipq-6.6/202502/0600-1-qca-nss-ecm-support-CORE.patch openwrt/target/linux/qualcommax/patches-6.6/0600-1-qca-nss-ecm-support-CORE.patch
+		cp -f openwrt-2410-ipq/sfe-ipq-6.6/202502/0603-1-qca-nss-clients-add-qdisc-support.patch openwrt/target/linux/qualcommax/patches-6.6/0603-1-qca-nss-clients-add-qdisc-support.patch
 	else
-		cp -f openwrt-ipq/sfe-ipq-6.6/20250425/0600-1-qca-nss-ecm-support-CORE.patch openwrt/target/linux/qualcommax/patches-6.6/0600-1-qca-nss-ecm-support-CORE.patch
-		cp -f openwrt-ipq/sfe-ipq-6.6/20250425/0603-1-qca-nss-clients-add-qdisc-support.patch openwrt/target/linux/qualcommax/patches-6.6/0603-1-qca-nss-clients-add-qdisc-support.patch
-		cp -f openwrt-ipq/sfe-ipq-6.6/20250425/0981-0-qca-skbuff-revert.patch openwrt/target/linux/qualcommax/patches-6.6/0981-0-qca-skbuff-revert.patch
+		cp -f openwrt-2410-ipq/sfe-ipq-6.6/20250425/0600-1-qca-nss-ecm-support-CORE.patch openwrt/target/linux/qualcommax/patches-6.6/0600-1-qca-nss-ecm-support-CORE.patch
+		cp -f openwrt-2410-ipq/sfe-ipq-6.6/20250425/0603-1-qca-nss-clients-add-qdisc-support.patch openwrt/target/linux/qualcommax/patches-6.6/0603-1-qca-nss-clients-add-qdisc-support.patch
+		cp -f openwrt-2410-ipq/sfe-ipq-6.6/20250425/0981-0-qca-skbuff-revert.patch openwrt/target/linux/qualcommax/patches-6.6/0981-0-qca-skbuff-revert.patch
 	fi
 
 		mkdir -p openwrt/package/qca
@@ -366,8 +366,8 @@ function add_openwrt_files() {
 # for 2410 end
 
 # for 2410 ipq
-	if [ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-ipq" ]; then
-	[ -d $OpenWrt_PATCH_FILE_DIR/package-for-openwrt-ipq ] && cp -r $OpenWrt_PATCH_FILE_DIR/package-for-openwrt-ipq/* openwrt/package
+	if [ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-2410-ipq" ]; then
+	[ -d $OpenWrt_PATCH_FILE_DIR/package-for-openwrt-2410-ipq ] && cp -r $OpenWrt_PATCH_FILE_DIR/package-for-openwrt-2410-ipq/* openwrt/package
 	fi
 
 	if [ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-ipq50xx" ]; then
@@ -442,7 +442,7 @@ function fix_openwrt_feeds() {
 }
 
 function autosetver() {
-	if [ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-ipq" ]; then
+	if [ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-2410-ipq" ]; then
 		version=24.10-NSS
 	fi
 	if [ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-2410" ]; then
@@ -667,7 +667,7 @@ fi
 
 
 function add_openwrt_kmods() {
-	if [ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-ipq" ]; then
+	if [ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-2410-ipq" ]; then
 	add_all_ipq_nss_kmod_config
 	cd openwrt && make defconfig && cd ../
 	add_all_ipq_nss_kmod_config

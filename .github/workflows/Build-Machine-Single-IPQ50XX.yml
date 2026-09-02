@@ -165,7 +165,7 @@ jobs:
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
-        chmod +x gen-sha256sum.sh add-test-packages.sh add-sfe-packages.sh core.sh core-neo.sh
+        chmod +x gen-sha256sum.sh add-test-packages.sh add-sfe-packages.sh core-2410-ipq.sh core-neo.sh
         $GITHUB_WORKSPACE/core-neo.sh init-pkg-env
 
     - name: 设置GITHUB_ENV
@@ -380,8 +380,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         files: "${{ env.FIRMWARE }}/*"
-        name: ${{ env.date }} ${{matrix.target}}-${{github.event.inputs.MACH}}-openwrt-ipq
-        tag_name: ${{ env.date }}_${{matrix.target}}-${{github.event.inputs.MACH}}-openwrt-ipq
+        name: ${{ env.date }} ${{matrix.target}}-${{github.event.inputs.MACH}}-openwrt-2410-ipq
+        tag_name: ${{ env.date }}_${{matrix.target}}-${{github.event.inputs.MACH}}-openwrt-2410-ipq
         body_path: release.txt
 
     - name: 删除工作流

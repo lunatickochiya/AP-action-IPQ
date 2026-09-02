@@ -1,4 +1,4 @@
-name: Build OpenWrt-IPQ 25.12 Single Machine
+name: Build OpenWrt 25.12 IPQ Single Machine
 
 permissions:
   contents: write
@@ -56,8 +56,8 @@ on:
 
 env:
   TZ: Asia/Shanghai
-  OpenWrt_PATCH_FILE_DIR: openwrt-ipq
-  OpenWrt_REPO_ENV_FILE: openwrt-ipq-2512
+  OpenWrt_PATCH_FILE_DIR: openwrt-2410-ipq
+  OpenWrt_REPO_ENV_FILE: openwrt-2512-ipq
   KERNEL66_REPO_TOKEN: ${{ secrets.MY_SECRET_TOKEN }}
 
 jobs:
@@ -73,7 +73,7 @@ jobs:
         uses: actions/checkout@main
       - name: Resolve build matrix
         id: set-matrix
-        run: bash "$GITHUB_WORKSPACE/core-2512.sh" resolve-build-matrix
+        run: bash "$GITHUB_WORKSPACE/core-2512-ipq.sh" resolve-build-matrix
 
   build:
     runs-on: ubuntu-24.04
@@ -126,15 +126,15 @@ jobs:
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
-          chmod +x core-2512.sh gen-sha256sum.sh after_build.sh archive/diy-openwrt-ipq.sh
-          "$GITHUB_WORKSPACE/core-2512.sh" init-pkg-env
+          chmod +x core-2512-ipq.sh gen-sha256sum.sh after_build.sh archive/diy-openwrt-2512-ipq.sh
+          "$GITHUB_WORKSPACE/core-2512-ipq.sh" init-pkg-env
 
       - name: Export build options
         env:
           PATCH_JSON_INPUT: '${{ github.event.inputs.patch_repo || github.event.client_payload.patch_repo }}'
           CONFIG_JSON_INPUT: '${{ github.event.inputs.config_repo || github.event.client_payload.config_repo }}'
         run: |
-          "$GITHUB_WORKSPACE/core-2512.sh" init-gh-env
+          "$GITHUB_WORKSPACE/core-2512-ipq.sh" init-gh-env
 
       - name: Clone OpenWrt source
         working-directory: /workdir
@@ -155,30 +155,30 @@ jobs:
 
       - name: Link build cache
         run: |
-          "$GITHUB_WORKSPACE/core-2512.sh" ln-openwrt
+          "$GITHUB_WORKSPACE/core-2512-ipq.sh" ln-openwrt
 
       - name: Apply device and feature options
         run: |
-          "$GITHUB_WORKSPACE/core-2512.sh" init-openwrt-patch
+          "$GITHUB_WORKSPACE/core-2512-ipq.sh" init-openwrt-patch
 
       - name: Add SFE
         id: sfe
         if: env.SFE_INPUT_STATUS == 'true'
         run: |
-          "$GITHUB_WORKSPACE/core-2512.sh" add-openwrt-sfe-2512
+          "$GITHUB_WORKSPACE/core-2512-ipq.sh" add-openwrt-sfe-2512
           echo "SFE=_SFE" >> "$GITHUB_ENV"
           echo "status=success" >> "$GITHUB_OUTPUT"
 
       - name: Add non-SFE IPQ packages
         if: env.SFE_INPUT_STATUS != 'true'
         run: |
-          "$GITHUB_WORKSPACE/core-2512.sh" add-openwrt-nosfe-ipq-2512
+          "$GITHUB_WORKSPACE/core-2512-ipq.sh" add-openwrt-nosfe-ipq-2512
 
       - name: Add repository files and patches
         if: steps.clone.outputs.status == 'success'
         id: files
         run: |
-          "$GITHUB_WORKSPACE/core-2512.sh" add-openwrt-files
+          "$GITHUB_WORKSPACE/core-2512-ipq.sh" add-openwrt-files
           echo "status=success" >> "$GITHUB_OUTPUT"
 
       - name: Set LAN IP
@@ -193,7 +193,7 @@ jobs:
         run: |
           cd openwrt
           ./scripts/feeds update -a
-          (cp -r $GITHUB_WORKSPACE/openwrt-2512/feeds-replace/luci/* feeds/luci/ && echo "luci-lib-docker Re-add")
+          (cp -r $GITHUB_WORKSPACE/openwrt-2512-ipq/feeds-replace/luci/* feeds/luci/ && echo "luci-lib-docker Re-add")
           rm -rf feeds/luci.index
           ./scripts/feeds update luci
           ./scripts/feeds install -a
@@ -206,13 +206,13 @@ jobs:
           INPUT_PKGS_CFG_STATUS: ${{ github.event.inputs.packages_mod || github.event.client_payload.packages_mod || 'm' }}
           INPUT_PKGS_CFG_FOO: ${{ github.event.inputs.packages || github.event.client_payload.packages || '' }}
         run: |
-          "$GITHUB_WORKSPACE/core-2512.sh" fix-openwrt-feeds
+          "$GITHUB_WORKSPACE/core-2512-ipq.sh" fix-openwrt-feeds
           echo "status=success" >> "$GITHUB_OUTPUT"
 
       - name: Add all kernel modules
         if: steps.config.outputs.status == 'success' && env.ALLKMOD == '1'
         run: |
-          "$GITHUB_WORKSPACE/core-2512.sh" add-openwrt-kmods
+          "$GITHUB_WORKSPACE/core-2512-ipq.sh" add-openwrt-kmods
 
       - name: Download sources
         if: steps.config.outputs.status == 'success'
@@ -336,8 +336,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: "${{ env.FIRMWARE }}/*"
-          name: ${{ env.date }} ${{matrix.target}}-${{ env.Target_CFG_Machine }}-openwrt-2512
-          tag_name: ${{ env.date }}_${{matrix.target}}-${{ env.Target_CFG_Machine }}-openwrt-2512
+          name: ${{ env.date }} ${{matrix.target}}-${{ env.Target_CFG_Machine }}-openwrt-2512-ipq
+          tag_name: ${{ env.date }}_${{matrix.target}}-${{ env.Target_CFG_Machine }}-openwrt-2512-ipq
           body_path: release.txt
 
       - name: 删除工作流

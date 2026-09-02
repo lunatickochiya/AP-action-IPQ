@@ -6,8 +6,8 @@ IPQ 支持已从 [AP-action](https://github.com/lunatickochiya/AP-action) 独立
 
 ## 构建流程
 
-- `Build-Machine-Single-IPQ.yml`：OpenWrt 24.10 IPQ/NSS
-- `Build-Machine-Single-IPQ-2512.yml`：OpenWrt 25.12 IPQ/NSS
+- `Build-Machine-Single-2410-IPQ.yml`：OpenWrt 24.10 IPQ/NSS
+- `Build-Machine-Single-2512-IPQ.yml`：OpenWrt 25.12 IPQ/NSS
 - `Build-Machine-Single-IPQ50XX.yml`：IPQ50XX
 
 在 Actions 页面选择对应工作流，点击 `Run workflow`，再选择设备和构建参数。
@@ -27,9 +27,9 @@ IPQ50XX：
 
 ## 配置说明
 
-- 设备配置位于 `machine-configs/openwrt-ipq*`
-- 软件包配置位于 `package-configs/openwrt-ipq*`
-- 补丁和平台文件位于 `openwrt-ipq` 与 `openwrt-ipq50xx`
+- 设备配置位于 `machine-configs/openwrt-2410-ipq` 与 `machine-configs/openwrt-ipq50xx`
+- 软件包配置位于 `package-configs/openwrt-2410-ipq` 与 `package-configs/openwrt-ipq50xx`
+- 补丁和平台文件位于 `openwrt-2512-ipq`、`openwrt-2410-ipq` 与 `openwrt-ipq50xx`
 - 24.10/25.12 工作流使用私有源码仓库时，需要配置 `MY_SECRET_TOKEN`
 
 `patch_repo` 支持通过 JSON 选择源码分支、NSS firmware、SFE、BBR v3、FullCone 等选项。
