@@ -213,6 +213,19 @@ jobs:
         if: steps.config.outputs.status == 'success' && env.ALLKMOD == '1'
         run: |
           "$GITHUB_WORKSPACE/core-2512-ipq.sh" add-openwrt-kmods
+      - name: Run awk command
+        if: steps.config.outputs.status == 'success'
+        working-directory: ./openwrt
+        run: |
+          echo "------------------------"
+          awk '/CONFIG_LINUX/ { print }' .config
+          awk '/${{matrix.target}}/ { print }' .config
+          echo "------------------------"
+          awk '/apk/ { print }' .config
+          echo "------------------------"
+          awk '/mediatek/ { print }' .config
+          echo "------------------------"
+          awk '/store/ { print }' .config
 
       - name: Download sources
         if: steps.config.outputs.status == 'success'
