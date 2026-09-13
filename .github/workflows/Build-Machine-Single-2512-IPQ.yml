@@ -195,7 +195,9 @@ jobs:
           ./scripts/feeds update -a
           (cp -r $GITHUB_WORKSPACE/openwrt-2512-ipq/feeds-replace/luci/* feeds/luci/ && echo "luci-lib-docker Re-add")
           rm -rf feeds/luci.index
-          ./scripts/feeds update luci
+          (rm -rf feeds/packages/lang/golang && cp -r $GITHUB_WORKSPACE/$OpenWrt_REPO_ENV_FILE/feeds-packages-replace/* feeds/packages/ && echo "Golang Replaced")
+          rm -rf feeds/packages.index
+          ./scripts/feeds update luci packages
           ./scripts/feeds install -a
           echo "status=success" >> "$GITHUB_OUTPUT"
 
