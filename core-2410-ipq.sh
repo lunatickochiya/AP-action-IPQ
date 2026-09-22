@@ -187,6 +187,15 @@ function init_gh_env_common() {
 }
 
 function init_openwrt_patch_common() {
+	# 启用 busybox nohup/xxd（Config-defaults.in 的默认值改为 y）
+	local busybox_defaults="openwrt/package/utils/busybox/Config-defaults.in"
+	if [ -f "$busybox_defaults" ]; then
+		sed -i \
+			-e '/^config BUSYBOX_DEFAULT_NOHUP$/{n;n;s/default n/default y/}' \
+			-e '/^config BUSYBOX_DEFAULT_XXD$/{n;n;s/default n/default y/}' \
+			"$busybox_defaults"
+		echo "----$Matrix_Target----busybox-nohup-xxd---"
+	fi
 	if [ "$Firewall_Allow_WAN" = "1" ]; then
 		sed -i '/^	commit$/i\
 		set firewall.@zone[1].input="ACCEPT"
