@@ -715,7 +715,7 @@ function add_openwrt_ipq_sfe_feed_66_compat() {
 	local patch_source="$OpenWrt_PATCH_FILE_DIR/sfe-ipq-6.6/qca-nss-ecm/patches/1001-ecm-support-conntrack-chain-events.patch"
 	local patch_dir="openwrt/feeds/nss_packages/qca-nss-ecm/patches"
 
-	[ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-2410-ipq" ] || return 0
+	[ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-2512-ipq" ] || return 0
 	kernel66_enabled || return 0
 	[ "${SFE_INPUT_STATUS:-false}" = "true" ] || return 0
 	if [ ! -s "$patch_source" ]; then
