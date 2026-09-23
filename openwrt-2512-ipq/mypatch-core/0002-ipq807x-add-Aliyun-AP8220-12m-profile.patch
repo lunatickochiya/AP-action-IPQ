@@ -1,0 +1,36 @@
+From 4ce4bc9bdb67a012e4798852133783c96da1bcf8 Mon Sep 17 00:00:00 2001
+From: lunatickochiya <125438787@qq.com>
+Date: Sat, 22 Aug 2026 18:00:00 +0800
+Subject: [PATCH] qualcommax: add Aliyun AP8220 12M profile
+
+Reuse the AP8220 device tree and packages while enforcing a 12 MiB
+kernel size limit. The shared device tree preserves the upstream board
+compatible so existing network, calibration, MAC and upgrade handling
+continues to apply to both profiles.
+
+Signed-off-by: lunatickochiya <125438787@qq.com>
+---
+ target/linux/qualcommax/image/ipq807x.mk | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/target/linux/qualcommax/image/ipq807x.mk b/target/linux/qualcommax/image/ipq807x.mk
+index 3096dc3d2d..66f8f76e15 100644
+--- a/target/linux/qualcommax/image/ipq807x.mk
++++ b/target/linux/qualcommax/image/ipq807x.mk
+@@ -46,6 +46,14 @@ define Device/aliyun_ap8220
+ endef
+ TARGET_DEVICES += aliyun_ap8220
+ 
++define Device/aliyun_ap8220-12m
++	$(call Device/aliyun_ap8220)
++	DEVICE_MODEL := AP8220 (12M)
++	DEVICE_DTS := ipq8071-ap8220
++	KERNEL_SIZE := 12288k
++endef
++TARGET_DEVICES += aliyun_ap8220-12m
++
+ define Device/arcadyan_aw1000
+ 	$(call Device/FitImage)
+ 	$(call Device/UbiFit)
+-- 
+2.34.1

@@ -365,7 +365,7 @@ function add_openwrt_ipq_sfe_66_compat() {
 	local target_dir="openwrt/target/linux/qualcommax/patches-6.6"
 	local patch_file
 
-	[ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-2410-ipq" ] || return 0
+	[ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-2512-ipq" ] || return 0
 	for patch_file in \
 		"$patch_root/202603/0600-1-qca-nss-ecm-support-CORE.patch" \
 		"$patch_root/202603/0603-1-qca-nss-clients-add-qdisc-support.patch" \
@@ -387,7 +387,7 @@ function add_openwrt_ipq_sfe_612_compat() {
 	local target_dir="openwrt/target/linux/qualcommax/patches-6.12"
 	local patch_file
 
-	[ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-2410-ipq" ] || return 0
+	[ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-2512-ipq" ] || return 0
 	for patch_file in \
 		"$patch_root/20250425/0600-1-qca-nss-ecm-support-CORE.patch" \
 		"$patch_root/20250425/0981-0-qca-skbuff-revert.patch"; do

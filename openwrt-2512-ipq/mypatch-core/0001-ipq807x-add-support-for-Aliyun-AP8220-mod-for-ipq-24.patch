@@ -1,0 +1,533 @@
+From 89885afe4e78c07fbe5ad7a5940bf21196fe682c Mon Sep 17 00:00:00 2001
+From: lunatickochiya <125438787@qq.com>
+Date: Sun, 9 Mar 2025 10:57:51 +0800
+Subject: [PATCH] ipq807x: add support for Aliyun AP8220 mod for ipq-24.10
+
+ap8220:fix wifi init issue
+Revert "ap8220:fix wifi issues"
+
+This reverts commit 858b2d0aa224758a3b38753635b1afff8f52a3c1.
+ap8220:fix wifi issues
+ipq807x: add support for Aliyun AP8220 mod for 24.10 ipq807x: add support for Aliyun AP8220 mod for 24.10 Revert "Auxiliary commit to revert individual files from 5e3046cb221a1b7cef554a147c22307c7ff109f8"
+
+This reverts commit b0b4368a2c22e613f5532bcf20398ffd4f3f5291.
+qualcommax: add support for Aliyun AP8220 dts
+
+Aliyun AP8220 is an AP manufactured by Edgecore.
+(Very similar to Edgecore EAP102)
+
+Hardware specifications:
+  SoC: Qualcomm IPQ8071A
+  RAM: 1GB of DDR4 600MHz
+  Flash1: MX25U3235F 4MB
+  Flash2: MX30UF1G18AC 128MB
+  Ethernet: 2x 2.5G RJ45 port
+  USB: 2x USB-A 2.0 port
+  WiFi1: QCN5024 2.4GHz
+  WiFi2: QCN5054 5GHz
+  Power: DC 12V / PoE
+
+Flash instructions:
+  1. Connect the router via serial port
+  2. Keep pressing @ until uboot is interrupted
+  3. Download the initramfs image, rename it to
+     initramfs.bin, host it with tftp server
+  4. Run these commands:
+     tftpboot initramfs.bin
+     bootm
+  5. After openwrt boots up, use scp or luci
+     to upload sysupgrade.bin to upgrade.
+
+Signed-off-by: Chukun Pan <amadeus@jmu.edu.cn>
+Link: https://github.com/openwrt/openwrt/pull/17970
+Signed-off-by: Robert Marko <robimarko@gmail.com>
+---
+ .../uboot-envtools/files/qualcommax_ipq807x   |   1 +
+ package/firmware/ipq-wifi/Makefile            |   2 +
+ .../arm64/boot/dts/qcom/ipq8071-ap8220.dts    | 347 ++++++++++++++++++
+ target/linux/qualcommax/image/ipq807x.mk      |  13 +
+ .../ipq807x/base-files/etc/board.d/02_network |   6 +
+ .../etc/hotplug.d/firmware/11-ath11k-caldata  |   1 +
+ .../etc/hotplug.d/ieee80211/11_fix_wifi_mac   |   5 +
+ .../base-files/lib/upgrade/platform.sh        |   4 +
+ 8 files changed, 379 insertions(+)
+ create mode 100644 target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq8071-ap8220.dts
+
+diff --git a/package/boot/uboot-envtools/files/qualcommax_ipq807x b/package/boot/uboot-envtools/files/qualcommax_ipq807x
+index 2d76045c66..26f7d64c54 100644
+--- a/package/boot/uboot-envtools/files/qualcommax_ipq807x
++++ b/package/boot/uboot-envtools/files/qualcommax_ipq807x
+@@ -17,6 +17,7 @@ netgear,wax630)
+ 	[ -n "$idx" ] && \
+ 		ubootenv_add_uci_config "/dev/mtd$idx" "0x0" "0x40000" "0x20000" "2"
+ 	;;
++aliyun,ap8220|\
+ compex,wpq873|\
+ edgecore,eap102|\
+ zyxel,nbg7815)
+diff --git a/package/firmware/ipq-wifi/Makefile b/package/firmware/ipq-wifi/Makefile
+index 8c5495522d..9623d4dec7 100644
+--- a/package/firmware/ipq-wifi/Makefile
++++ b/package/firmware/ipq-wifi/Makefile
+@@ -28,6 +28,7 @@ endef
+ 
+ ALLWIFIBOARDS:= \
+ 	8devices_mango \
++	aliyun_ap8220 \
+ 	arcadyan_aw1000 \
+ 	asus_rt-ax89x \
+ 	buffalo_wxr-5950ax12 \
+@@ -155,6 +156,7 @@ endef
+ #   board-<devicename>.<qca4019|qca9888|qca9889|qca9984|qca99x0|ipq8074>
+ 
+ $(eval $(call generate-ipq-wifi-package,8devices_mango,8devices Mango))
++$(eval $(call generate-ipq-wifi-package,aliyun_ap8220,Aliyun AP8220))
+ $(eval $(call generate-ipq-wifi-package,arcadyan_aw1000,Arcadyan AW1000))
+ $(eval $(call generate-ipq-wifi-package,asus_rt-ax89x,Asus RT-AX89X))
+ $(eval $(call generate-ipq-wifi-package,buffalo_wxr-5950ax12,Buffalo WXR-5950AX12))
+diff --git a/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq8071-ap8220.dts b/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq8071-ap8220.dts
+new file mode 100644
+index 0000000000..cfbcb33aa3
+--- /dev/null
++++ b/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq8071-ap8220.dts
+@@ -0,0 +1,347 @@
++// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
++/* Copyright (c) 2025, LunaticKochiya <125438787@qq.com> */
++/* For IPQ NSS Only */
++
++/dts-v1/;
++
++#include "ipq8074.dtsi"
++#include "ipq8074-ac-cpu.dtsi"
++#include "ipq8074-ess.dtsi"
++#include "ipq8074-nss.dtsi"
++
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/input/input.h>
++#include <dt-bindings/leds/common.h>
++
++/ {
++	model = "Aliyun AP8220";
++	compatible = "aliyun,ap8220", "qcom,ipq8074";
++
++	aliases {
++		serial0 = &blsp1_uart5;
++		serial1 = &blsp1_uart3;
++
++		led-boot = &led_pw;
++		led-failsafe = &led_pw;
++		led-running = &led_pw;
++		led-upgrade = &led_pw;
++
++		ethernet4 = &dp5;
++		ethernet5 = &dp6;
++
++		label-mac-device = &dp6;
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++		bootargs-append = " root=/dev/ubiblock0_1";
++	};
++
++	keys {
++		compatible = "gpio-keys";
++
++		reset {
++			label = "reset";
++			linux,code = <KEY_RESTART>;
++			gpios = <&tlmm 66 GPIO_ACTIVE_LOW>;
++		};
++	};
++
++	leds {
++		compatible = "gpio-leds";
++
++		led_pw: power {
++			label = "green:power";
++			gpios = <&tlmm 46 GPIO_ACTIVE_HIGH>;
++		};
++
++		wlan2g {
++			label = "green:wlan2g";
++			gpios = <&tlmm 47 GPIO_ACTIVE_HIGH>;
++			linux,default-trigger = "phy1radio";
++		};
++
++		wlan5g {
++			label = "green:wlan5g";
++			gpios = <&tlmm 48 GPIO_ACTIVE_HIGH>;
++			linux,default-trigger = "phy0radio";
++		};
++
++		bluetooth {
++			label = "green:bluetooth";
++			gpios = <&tlmm 50 GPIO_ACTIVE_HIGH>;
++		};
++	};
++
++	gpio-export {
++		compatible = "gpio-export";
++
++		ble-power {
++			gpio-export,name = "ble_power";
++			gpio-export,output = <1>;
++			gpios = <&tlmm 54 GPIO_ACTIVE_HIGH>;
++		};
++	};
++};
++
++&tlmm {
++	mdio_pins: mdio-pins {
++		mdc {
++			pins = "gpio68";
++			function = "mdc";
++			drive-strength = <8>;
++			bias-pull-up;
++		};
++
++		mdio {
++			pins = "gpio69";
++			function = "mdio";
++			drive-strength = <8>;
++			bias-pull-up;
++		};
++	};
++
++	usb_mux_sel_pins: usb-mux-sel-pins {
++		mux {
++			pins = "gpio27";
++			function = "gpio";
++			drive-strength = <8>;
++			bias-pull-down;
++		};
++	};
++};
++
++&blsp1_spi1 {
++	status = "okay";
++
++	pinctrl-0 = <&spi_0_pins>;
++	pinctrl-names = "default";
++	cs-select = <0>;
++
++	flash@0 {
++		compatible = "jedec,spi-nor";
++		#address-cells = <1>;
++		#size-cells = <1>;
++		reg = <0>;
++		spi-max-frequency = <50000000>;
++
++		partitions {
++			compatible = "fixed-partitions";
++			#address-cells = <1>;
++			#size-cells = <1>;
++
++			partition@0 {
++				label = "0:sbl1";
++				reg = <0x00 0x50000>;
++			};
++
++			partition@50000 {
++				label = "0:mibib";
++				reg = <0x50000 0x10000>;
++			};
++
++			partition@60000 {
++				label = "0:qsee";
++				reg = <0x60000 0x180000>;
++			};
++
++			partition@1e0000 {
++				label = "0:devcfg";
++				reg = <0x1e0000 0x10000>;
++			};
++
++			partition@1f0000 {
++				label = "0:apdp";
++				reg = <0x1f0000 0x10000>;
++			};
++
++			partition@200000 {
++				label = "0:rpm";
++				reg = <0x200000 0x40000>;
++			};
++
++			partition@240000 {
++				label = "0:cdt";
++				reg = <0x240000 0x10000>;
++			};
++
++			partition@250000 {
++				label = "0:appsblenv";
++				reg = <0x250000 0x10000>;
++			};
++
++			partition@260000 {
++				label = "0:appsbl";
++				reg = <0x260000 0xa0000>;
++			};
++
++			partition@300000 {
++				label = "0:art";
++				reg = <0x300000 0x40000>;
++			};
++
++			partition@340000 {
++				label = "0:ethphyfw";
++				reg = <0x340000 0x80000>;
++			};
++
++			partition@3c0000 {
++				label = "product_info";
++				reg = <0x3c0000 0x10000>;
++			};
++
++			partition@3d0000 {
++				label = "mtdoops";
++				reg = <0x3d0000 0x20000>;
++			};
++
++			partition@3f0000 {
++				label = "priv_data1";
++				reg = <0x3f0000 0x10000>;
++			};
++		};
++	};
++};
++
++&qpic_nand {
++	status = "okay";
++
++	nand@0 {
++		reg = <0>;
++		#address-cells = <1>;
++		#size-cells = <1>;
++		nand-ecc-strength = <4>;
++		nand-ecc-step-size = <512>;
++		nand-bus-width = <8>;
++	};
++};
++
++&mdio {
++	status = "okay";
++
++	pinctrl-0 = <&mdio_pins>;
++	pinctrl-names = "default";
++
++	qca8081_24: ethernet-phy@24 {
++		compatible = "ethernet-phy-id004d.d101";
++		reg = <24>;
++		reset-deassert-us = <10000>;
++		reset-gpios = <&tlmm 33 GPIO_ACTIVE_LOW>;
++	};
++
++	qca8081_28: ethernet-phy@28 {
++		compatible = "ethernet-phy-id004d.d101";
++		reg = <28>;
++		reset-deassert-us = <10000>;
++		reset-gpios = <&tlmm 44 GPIO_ACTIVE_LOW>;
++	};
++};
++
++&switch {
++	status = "okay";
++
++	switch_lan_bmp = <ESS_PORT5>;
++	switch_wan_bmp = <ESS_PORT6>;
++	switch_mac_mode1 = <MAC_MODE_SGMII_PLUS>;
++	switch_mac_mode2 = <MAC_MODE_SGMII_PLUS>;
++
++	qcom,port_phyinfo {
++		port@5 {
++			port_id = <5>;
++			phy_address = <24>;
++			port_mac_sel = "QGMAC_PORT";
++		};
++
++		port@6 {
++			port_id = <6>;
++			phy_address = <28>;
++			port_mac_sel = "QGMAC_PORT";
++		};
++	};
++};
++
++&edma {
++	status = "okay";
++};
++
++&blsp1_i2c2 {
++	status = "okay";
++};
++
++&blsp1_spi1 {
++	status = "okay";
++};
++
++&blsp1_uart3 {
++	status = "okay";
++};
++
++&blsp1_uart5 {
++	status = "okay";
++};
++
++&crypto {
++	status = "okay";
++};
++
++&cryptobam {
++	status = "okay";
++};
++
++&pcie_qmp0 {
++	status = "okay";
++};
++
++&pcie_qmp1 {
++	status = "okay";
++};
++
++&prng {
++	status = "okay";
++};
++
++&qpic_bam {
++	status = "okay";
++};
++
++&qusb_phy_0 {
++	status = "okay";
++};
++
++&qusb_phy_1 {
++	status = "okay";
++};
++
++&ssphy_0 {
++	status = "okay";
++};
++
++&ssphy_1 {
++	status = "okay";
++};
++
++&usb_0 {
++	status = "okay";
++};
++
++&usb_1 {
++	status = "okay";
++};
++
++&dp5 {
++	status = "okay";
++	phy-handle = <&qca8081_24>;
++	label = "wan";
++};
++
++&dp6 {
++	status = "okay";
++	phy-handle = <&qca8081_28>;
++	label = "lan";
++};
++
++&wifi {
++	status = "okay";
++	qcom,ath11k-fw-memory-mode = <1>;
++	qcom,ath11k-calibration-variant = "Aliyun-AP8220";
++};
+diff --git a/target/linux/qualcommax/image/ipq807x.mk b/target/linux/qualcommax/image/ipq807x.mk
+index bdf7dcc82c..3cbfc4480a 100644
+--- a/target/linux/qualcommax/image/ipq807x.mk
++++ b/target/linux/qualcommax/image/ipq807x.mk
+@@ -33,6 +33,19 @@ define Build/wax6xx-netgear-tar
+ 	rm -rf $@.tmp
+ endef
+ 
++define Device/aliyun_ap8220
++	$(call Device/FitImage)
++	$(call Device/UbiFit)
++	DEVICE_VENDOR := Aliyun
++	DEVICE_MODEL := AP8220
++	BLOCKSIZE := 128k
++	PAGESIZE := 2048
++	DEVICE_DTS_CONFIG := config@ac02
++	SOC := ipq8071
++	DEVICE_PACKAGES := ipq-wifi-aliyun_ap8220
++endef
++TARGET_DEVICES += aliyun_ap8220
++
+ define Device/arcadyan_aw1000
+ 	$(call Device/FitImage)
+ 	$(call Device/UbiFit)
+diff --git a/target/linux/qualcommax/ipq807x/base-files/etc/board.d/02_network b/target/linux/qualcommax/ipq807x/base-files/etc/board.d/02_network
+index edb1ae9557..773b95b2c4 100644
+--- a/target/linux/qualcommax/ipq807x/base-files/etc/board.d/02_network
++++ b/target/linux/qualcommax/ipq807x/base-files/etc/board.d/02_network
+@@ -36,6 +36,7 @@ ipq807x_setup_interfaces()
+ 	xiaomi,ax3600)
+ 		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" "wan"
+ 		;;
++	aliyun,ap8220|\
+ 	edgecore,eap102|\
+ 	yuncore,ax880|\
+ 	zte,mf269)
+@@ -81,6 +82,11 @@ ipq807x_setup_macs()
+ 	local label_mac=""
+ 
+ 	case "$board" in
++		aliyun,ap8220)
++		wan_mac=$(mtd_get_mac_text product_info 0x4b)
++		lan_mac=$(macaddr_add $wan_mac 1)
++		label_mac=$wan_mac
++		;;
+ 		linksys,mx4200v2|\
+ 		linksys,mx4300)
+ 			label_mac=$(mtd_get_mac_ascii devinfo hw_mac_addr)
+diff --git a/target/linux/qualcommax/ipq807x/base-files/etc/hotplug.d/firmware/11-ath11k-caldata b/target/linux/qualcommax/ipq807x/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
+index 34c0a476d3..e3ec902510 100644
+--- a/target/linux/qualcommax/ipq807x/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
++++ b/target/linux/qualcommax/ipq807x/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
+@@ -13,6 +13,7 @@ case "$FIRMWARE" in
+ 		CI_UBIPART="UBI_DEV"
+ 		caldata_extract_ubi "Factory" 0x1000 0x20000
+ 		;;
++	aliyun,ap8220|\
+ 	arcadyan,aw1000|\
+ 	buffalo,wxr-5950ax12|\
+ 	cmcc,rm2-6|\
+diff --git a/target/linux/qualcommax/ipq807x/base-files/etc/hotplug.d/ieee80211/11_fix_wifi_mac b/target/linux/qualcommax/ipq807x/base-files/etc/hotplug.d/ieee80211/11_fix_wifi_mac
+index 80c07b8542..22b1bf7d0e 100644
+--- a/target/linux/qualcommax/ipq807x/base-files/etc/hotplug.d/ieee80211/11_fix_wifi_mac
++++ b/target/linux/qualcommax/ipq807x/base-files/etc/hotplug.d/ieee80211/11_fix_wifi_mac
+@@ -10,6 +10,11 @@ PHYNBR=${DEVPATH##*/phy}
+ board=$(board_name)
+ 
+ case "$board" in
++	aliyun,ap8220)
++		label_mac=$(mtd_get_mac_text product_info 0x4b)
++		[ "$PHYNBR" = "0" ] && macaddr_add $label_mac 2 > /sys${DEVPATH}/macaddress
++		[ "$PHYNBR" = "1" ] && macaddr_add $label_mac 3 > /sys${DEVPATH}/macaddress
++		;;
+ 	arcadyan,aw1000)
+ 		[ "$PHYNBR" = "0" ] && macaddr_add $(get_mac_label) 1 > /sys${DEVPATH}/macaddress
+ 		[ "$PHYNBR" = "1" ] && macaddr_add $(get_mac_label) 2 > /sys${DEVPATH}/macaddress
+diff --git a/target/linux/qualcommax/ipq807x/base-files/lib/upgrade/platform.sh b/target/linux/qualcommax/ipq807x/base-files/lib/upgrade/platform.sh
+index 0691c92184..ab12084870 100644
+--- a/target/linux/qualcommax/ipq807x/base-files/lib/upgrade/platform.sh
++++ b/target/linux/qualcommax/ipq807x/base-files/lib/upgrade/platform.sh
+@@ -127,6 +127,10 @@ platform_pre_upgrade() {
+ 
+ platform_do_upgrade() {
+ 	case "$(board_name)" in
++	aliyun,ap8220)
++		CI_UBIPART="rootfs"
++		nand_do_upgrade "$1"
++		;;
+ 	arcadyan,aw1000|\
+ 	cmcc,rm2-6|\
+ 	compex,wpq873|\
+-- 
+2.34.1

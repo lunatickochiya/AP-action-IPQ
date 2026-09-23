@@ -1,0 +1,63 @@
+--- a/ecm_conntrack_notifier.c
++++ b/ecm_conntrack_notifier.c
+@@ -332,8 +332,9 @@
+  * ecm_conntrack_event()
+  *	Callback event invoked when conntrack connection state changes, currently we handle destroy events to quickly release state
+  */
+-static int ecm_conntrack_event(unsigned int events, const struct nf_ct_event *item)
++static int ecm_conntrack_event(struct notifier_block *unused, unsigned long events, void *ptr)
+ {
++	const struct nf_ct_event *item = ptr;
+ 	struct nf_conn *ct = item->ct;
+ 
+ 	/*
+@@ -381,15 +382,11 @@
+ }
+ 
+ /*
+- * struct nf_ct_event_notifier ecm_conntrack_notifier
++ * struct notifier_block ecm_conntrack_notifier
+  *	Netfilter conntrack event system to monitor connection tracking changes
+  */
+-static struct nf_ct_event_notifier ecm_conntrack_notifier = {
+-#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
+-    .fcn	= ecm_conntrack_event,
+-#else
+-    .ct_event	= ecm_conntrack_event,
+-#endif
++static struct notifier_block ecm_conntrack_notifier = {
++	.notifier_call = ecm_conntrack_event,
+ };
+ #endif
+ 
+@@ -427,16 +424,12 @@
+ 	/*
+ 	 * Eventing subsystem is available so we register a notifier hook to get fast notifications of expired connections
+ 	 */
+-#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
+-   result = nf_conntrack_register_notifier(&init_net, &ecm_conntrack_notifier);
++	result = nf_conntrack_register_notifier(&init_net, &ecm_conntrack_notifier);
+ 	if (result < 0) {
+ 		DEBUG_ERROR("Can't register nf notifier hook.\n");
+ 		debugfs_remove_recursive(ecm_conntrack_notifier_dentry);
+ 		return result;
+ 	}
+-#else
+-   nf_conntrack_register_notifier(&init_net, &ecm_conntrack_notifier);
+-#endif
+ 
+ 	/*
+ 	 * Hold netns reference to keep the basic conntrack alive and
+@@ -478,11 +471,7 @@
+ #ifdef ECM_IPV6_ENABLE
+ 	nf_ct_netns_put(&init_net, NFPROTO_IPV6);
+ #endif
+-#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
+ 	nf_conntrack_unregister_notifier(&init_net, &ecm_conntrack_notifier);
+-#else
+-   nf_conntrack_unregister_notifier(&init_net);
+-#endif
+ #endif
+ 	/*
+ 	 * Remove the debugfs files recursively.
+
