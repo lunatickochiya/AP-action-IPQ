@@ -715,7 +715,7 @@ function add_openwrt_ipq_sfe_feed_66_compat() {
 	local patch_source="$OpenWrt_PATCH_FILE_DIR/sfe-ipq-6.6/qca-nss-ecm/patches/1001-ecm-support-conntrack-chain-events.patch"
 	local patch_dir="openwrt/feeds/nss_packages/qca-nss-ecm/patches"
 
-	[ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-2410-ipq" ] || return 0
+	[ "$OpenWrt_PATCH_FILE_DIR" = "openwrt-2512-ipq" ] || return 0
 	kernel66_enabled || return 0
 	[ "${SFE_INPUT_STATUS:-false}" = "true" ] || return 0
 	if [ ! -s "$patch_source" ]; then
@@ -733,9 +733,6 @@ function add_openwrt_sfe_kmods() {
 }
 function add_openwrt_files() {
 	mkdir -p openwrt/feeds/lunatic7
-	if [ "$OpenWrt_REPO_ENV_FILE" = "openwrt-2512-ipq" ]; then
-	mv -f openwrt-2512-ipq/mypatch-core/0001-tools-add-liblzo-dependency-to-ccache.patch openwrt-2410-ipq/mypatch-core/0001-tools-add-liblzo-dependency-to-ccache.patch
-	fi
 	mkdir -p openwrt/package/firmware/ipq-wifi/src
 	# [ -d $OpenWrt_PATCH_FILE_DIR/bin-files ] && cp -r $OpenWrt_PATCH_FILE_DIR/bin-files/ipq-wifi/src/* openwrt/package/firmware/ipq-wifi/src
 	[ -d package ] && cp -r package/* openwrt/package
@@ -792,14 +789,6 @@ function fix_openwrt_feeds() {
 	[ -d $OpenWrt_PATCH_FILE_DIR/feeds-telephony-patch ] && mv -f $OpenWrt_PATCH_FILE_DIR/feeds-telephony-patch openwrt/feeds/telephony/feeds-telephony-patch
 	[ -d $OpenWrt_PATCH_FILE_DIR/feeds-routing-patch ] && mv -f $OpenWrt_PATCH_FILE_DIR/feeds-routing-patch openwrt/feeds/routing/feeds-routing-patch
 
-	if [ "$OpenWrt_REPO_ENV_FILE" = "openwrt-2512-ipq" ]; then
-	rm -rf openwrt/feeds/lunatic7/lunatic7-revert openwrt/feeds/luci/feeds-luci-patch openwrt/feeds/packages/feeds-packages-patch openwrt/feeds/telephony/feeds-telephony-patch openwrt/feeds/routing/feeds-routing-patch
-	[ -d openwrt-2512-ipq/lunatic7-revert ] && mv -f openwrt-2512-ipq/lunatic7-revert openwrt/feeds/lunatic7/lunatic7-revert
-	[ -d openwrt-2512-ipq/feeds-luci-patch ] && mv -f openwrt-2512-ipq/feeds-luci-patch openwrt/feeds/luci/feeds-luci-patch
-	[ -d openwrt-2512-ipq/feeds-packages-patch ] && mv -f openwrt-2512-ipq/feeds-packages-patch openwrt/feeds/packages/feeds-packages-patch
-	[ -d openwrt-2512-ipq/feeds-telephony-patch ] && mv -f openwrt-2512-ipq/feeds-telephony-patch openwrt/feeds/telephony/feeds-telephony-patch
-	[ -d openwrt-2512-ipq/feeds-routing-patch ] && mv -f openwrt-2512-ipq/feeds-routing-patch openwrt/feeds/routing/feeds-routing-patch
-	fi
 	cd openwrt
 	autosetver_2512
 	remove_error_package_not_install
