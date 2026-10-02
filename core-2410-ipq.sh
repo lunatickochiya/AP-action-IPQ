@@ -567,6 +567,32 @@ function add_openwrt_files() {
 	[ -e files ] && mv files openwrt/files
 }
 
+# 补丁的目标文件在这个树里存在吗？不存在就跳过（例如补丁只适用于别的平台或别的包布局）。
+# 路径取自 diff 头 "--- a/xxx" / "+++ b/xxx"，新建/删除文件（/dev/null）不检查。
+patch_targets_exist() {
+	local patch_file="$1"
+	local target_path
+
+	while IFS= read -r target_path; do
+		[ -n "$target_path" ] || continue
+		if [ ! -e "$target_path" ]; then
+			echo "  -> skip: $target_path not found in this tree"
+			return 1
+		fi
+	done < <(awk '
+		/^--- / { src = $2 }
+		/^\+\+\+ / {
+			dst = $2
+			if (src != "/dev/null" && dst != "/dev/null" && dst != "") {
+				sub(/^[ab]\//, "", dst)
+				print dst
+			}
+		}
+	' "$patch_file")
+
+	return 0
+}
+
 function apply_openwrt_patch_dir() {
 	local patch_dir="$1"
 	local patch_file
@@ -582,6 +608,7 @@ function apply_openwrt_patch_dir() {
 	shopt -u nullglob
 	for patch_file in "${patch_files[@]}"; do
 		echo "Applying $patch_file"
+		patch_targets_exist "$patch_file" || continue
 		patch -p1 --no-backup-if-mismatch --quiet < "$patch_file" || return 1
 	done
 }

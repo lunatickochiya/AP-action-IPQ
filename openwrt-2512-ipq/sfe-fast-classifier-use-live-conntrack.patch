@@ -1,27 +1,28 @@
 From: AP-action local patch
-Subject: [PATCH] package/shortcut-fe: fix use-after-free of cached conntrack
+Subject: [PATCH] shortcut-fe: fix use-after-free of the cached conntrack
 
 fast-classifier keeps a raw struct nf_conn pointer (sfe_connection.ct) for
 every offload entry and relies on the conntrack-destroy notifier to remove
-the entry.  When a 5-tuple is reused (or the destroy notification misses
-the entry) the pointer goes stale and
+the entry.  When a 5-tuple is reused (or the destroy notification misses the
+entry) that pointer goes stale, and
 
   fast_classifier_update_protocol(conn->sic, conn->ct)
 
-dereferences freed memory via nf_ct_net(ct) -> net->ct.nf_ct_proto.tcp.
-On ramips/mt7621 this was observed as:
+then dereferences freed memory through nf_ct_net(ct) ->
+net->ct.nf_ct_proto.tcp.  Observed on ramips/mt7621 (MSG1500, MT7621):
 
   CPU 3 Unable to handle kernel paging request at virtual address 000012c3
-  epc : fast_classifier_recv+0xe04 [fast_classifier]     (inlined
+  epc : fast_classifier_recv+0xe04 [fast_classifier]   (inlined
         fast_classifier_update_protocol -> nf_tcp_pernet ->
-        tn->tcp_no_window_check, offset 0x788 + 0x3a == 0x7c2)
+        tn->tcp_no_window_check; 0x788 + 0x3a == 0x7c2 == BadVA - 0x0b01)
   Kernel panic - not syncing: Fatal exception in interrupt
 
-The connection is looked up with the 5-tuple of the packet being processed,
-so use that packet's (referenced) conntrack instead of the cached one.
+The entry is looked up with the 5-tuple of the packet being processed, so
+use that packet's (referenced) conntrack instead of the cached snapshot.
 
---- a/package/shortcut-fe/fast-classifier/src/fast-classifier.c
-+++ b/package/shortcut-fe/fast-classifier/src/fast-classifier.c
+Applied by core-2512.sh add-openwrt-sfe-66-2512 / add-openwrt-sfe-612-2512.
+--- a/shortcut-fe/fast-classifier/src/fast-classifier.c
++++ b/shortcut-fe/fast-classifier/src/fast-classifier.c
 @@ -1061,7 +1061,14 @@
  			if (conn->offload_permit || conn->hits >= offload_at_pkts) {
  				DEBUG_TRACE("OFFLOADING CONNECTION, TOO MANY HITS\n");

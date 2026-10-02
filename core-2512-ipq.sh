@@ -490,6 +490,9 @@ function add_openwrt_sfe_66_2512() {
 		cp -r "$temp_dir/package/shortcut-fe" openwrt/package/ || exit 1
 		sed -i "s/$old_driver_hash/$driver_hash/" \
 			openwrt/package/shortcut-fe/simulated-driver/Makefile
+		echo "----sfe: applying fast-classifier stale-conntrack fix----"
+		patch -d openwrt/package -p1 --no-backup-if-mismatch --quiet \
+			< "$OpenWrt_PATCH_FILE_DIR/sfe-fast-classifier-use-live-conntrack.patch" || exit 1
 		cp -f "$temp_dir/package/pending-6.6/613-netfilter_optional_tcp_window_check.patch" \
 			openwrt/target/linux/generic/pending-6.6/ || exit 1
 		cp -f "$temp_dir/package/hack-6.6/952-add-net-conntrack-events-support-multiple-registrant.patch" \
@@ -595,6 +598,9 @@ function add_openwrt_sfe_612_2512() {
 		cp -r "$temp_dir/luci/luci-app-turboacc" openwrt/package/turboacc/ || exit 1
 		cp -r "$temp_dir/package/shortcut-fe" openwrt/package/turboacc/ || exit 1
 		rm -rf openwrt/package/turboacc/shortcut-fe/simulated-driver
+		echo "----sfe: applying fast-classifier stale-conntrack fix----"
+		patch -d openwrt/package/turboacc -p1 --no-backup-if-mismatch --quiet \
+			< "$OpenWrt_PATCH_FILE_DIR/sfe-fast-classifier-use-live-conntrack.patch" || exit 1
 		if [[ "$Matrix_Target" == *-nftables ]]; then
 			copy_openwrt_turboacc_nft_packages "$temp_dir/package" || exit 1
 		fi
@@ -742,6 +748,32 @@ function add_openwrt_files() {
 
 	[ -e files ] && mv files openwrt/files
 }
+# 补丁的目标文件在这个树里存在吗？不存在就跳过（例如补丁只适用于别的平台或别的包布局）。
+# 路径取自 diff 头 "--- a/xxx" / "+++ b/xxx"，新建/删除文件（/dev/null）不检查。
+patch_targets_exist() {
+	local patch_file="$1"
+	local target_path
+
+	while IFS= read -r target_path; do
+		[ -n "$target_path" ] || continue
+		if [ ! -e "$target_path" ]; then
+			echo "  -> skip: $target_path not found in this tree"
+			return 1
+		fi
+	done < <(awk '
+		/^--- / { src = $2 }
+		/^\+\+\+ / {
+			dst = $2
+			if (src != "/dev/null" && dst != "/dev/null" && dst != "") {
+				sub(/^[ab]\//, "", dst)
+				print dst
+			}
+		}
+	' "$patch_file")
+
+	return 0
+}
+
 function apply_openwrt_patch_dir() {
 	local patch_dir="$1"
 	local patch_file
@@ -765,6 +797,7 @@ function apply_openwrt_patch_dir() {
 			esac
 		fi
 		echo "Applying $patch_file"
+		patch_targets_exist "$patch_file" || continue
 		patch -p1 --no-backup-if-mismatch --quiet < "$patch_file" || return 1
 	done
 }
