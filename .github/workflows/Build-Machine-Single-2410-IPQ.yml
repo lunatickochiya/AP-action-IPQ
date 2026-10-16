@@ -12,7 +12,7 @@ on:
       config_repo:
         description: 'Use json config repo true(1) or false(0) See ReadME'
         required: true
-        default: '{"Cache": "1", "CacheSave": "false", "UPLOAD_RELEASE": "1", "ALLKMOD": "1"}'
+        default: '{"Cache": "1", "CacheSave": "false", "CacheSaveOnFailure": "true", "UPLOAD_RELEASE": "1", "ALLKMOD": "1"}'
 
       MACH:
         description: 'Choose machine'
@@ -303,7 +303,11 @@ jobs:
         find dl -size -1024c -exec rm -f {} \;
 
     - name: 缓存staging
-      uses: HiGarfield/cachewrtbuild@main
+      # fork（lunatickochiya/cachewrtbuild@save-on-failure）：config_repo 的
+      # CacheSaveOnFailure（默认 "true"）由 core-2410-ipq.sh 导出成 env
+      # CACHEWRT_SAVE_ON_FAILURE，fork 的 post-if 读它 —— 编译失败也执行 post 保存，
+      # 这样 tools/toolchain 编完后即使后面包编译/打包失败，缓存也不会白编。
+      uses: lunatickochiya/cachewrtbuild@save-on-failure
       if: env.Cache == '1' && !cancelled()
       with:
         ccache: 'true'

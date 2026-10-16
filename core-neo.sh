@@ -47,6 +47,9 @@ function init_gh_env_2410_ipq() {
 
 function config_json_input_set() {
 	echo -e "Cache=$(echo $CONFIG_JSON_INPUT | jq -r ".Cache")" >> "$GITHUB_ENV"
+	# fork（lunatickochiya/cachewrtbuild@save-on-failure）的 post-if 读这个 env：
+	# "true" 时编译失败也执行 post 保存（默认 "false"，恢复上游只在成功时保存）
+	echo -e "CACHEWRT_SAVE_ON_FAILURE=$(echo $CONFIG_JSON_INPUT | jq -r '.CacheSaveOnFailure // "false"')" >> "$GITHUB_ENV"
 	echo -e "UPLOAD_RELEASE=$(echo $CONFIG_JSON_INPUT | jq -r ".UPLOAD_RELEASE")" >> "$GITHUB_ENV"
 	echo -e "ALLKMOD=$(echo $CONFIG_JSON_INPUT | jq -r ".ALLKMOD")" >> "$GITHUB_ENV"
 }
