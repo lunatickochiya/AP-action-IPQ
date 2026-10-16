@@ -1,0 +1,24 @@
+name: clone-key-check
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Clone private repo via deploy key
+        env:
+          OPENWRT_REPO_SSH_KEY: ${{ secrets.OPENWRT_REPO_SSH_KEY }}
+        run: |
+          if [ -z "$OPENWRT_REPO_SSH_KEY" ]; then
+            echo "::error::secret OPENWRT_REPO_SSH_KEY not set"
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$OPENWRT_REPO_SSH_KEY" > ~/.ssh/openwrt_repo_key
+          chmod 600 ~/.ssh/openwrt_repo_key
+          export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/openwrt_repo_key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
+          git clone --single-branch --branch 25.12-nss-6.6-dev git@github.com:lunatickochiya/openwrt-ipq-2410.git openwrt-check
+          echo "HEAD_COMMIT: $(git -C openwrt-check log -1 --format='%h %s')"
+          echo "CLONE_OK"
