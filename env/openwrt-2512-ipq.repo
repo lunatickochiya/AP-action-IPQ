@@ -1,6 +1,6 @@
-REPO_URL="https://${KERNEL66_REPO_TOKEN}@github.com/lunatickochiya/openwrt-ipq-2410.git"
+REPO_URL="git@github.com:lunatickochiya/openwrt-ipq-2410.git"
 REPO_BRANCH="25.12-nss-6.6-dev"
-KERNEL66_REPO_URL="https://${KERNEL66_REPO_TOKEN}@github.com/lunatickochiya/openwrt-ipq-2410.git"
+KERNEL66_REPO_URL="git@github.com:lunatickochiya/openwrt-ipq-2410.git"
 KERNEL66_REPO_BRANCH="25.12-nss-6.6-dev"
 DIY_SH="archive/diy-openwrt-2512-ipq.sh"
 DIY_SH_AFB="after_build.sh"
