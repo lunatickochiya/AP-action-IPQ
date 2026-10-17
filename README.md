@@ -30,7 +30,7 @@ IPQ50XX：
 - 设备配置位于 `machine-configs/openwrt-2410-ipq` 与 `machine-configs/openwrt-ipq50xx`
 - 软件包配置位于 `package-configs/openwrt-2410-ipq` 与 `package-configs/openwrt-ipq50xx`
 - 补丁和平台文件位于 `openwrt-2512-ipq`、`openwrt-2410-ipq` 与 `openwrt-ipq50xx`
-- 24.10/25.12 工作流使用私有源码仓库时，需要配置 `MY_SECRET_TOKEN`
+- 24.10/25.12 工作流克隆私有源码仓库（`lunatickochiya/openwrt-ipq-2410`）使用只读 Deploy Key，私钥保存于 secret `OPENWRT_REPO_SSH_KEY`，仓库地址为 SSH URL（见 `env/openwrt-2512-ipq.repo`）
 
 `patch_repo` 支持通过 JSON 选择源码分支、NSS firmware、SFE、BBR v3、FullCone 等选项。
 

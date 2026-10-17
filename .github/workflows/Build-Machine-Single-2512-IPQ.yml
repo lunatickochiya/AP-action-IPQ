@@ -58,7 +58,6 @@ env:
   TZ: Asia/Shanghai
   OpenWrt_PATCH_FILE_DIR: openwrt-2512-ipq
   OpenWrt_REPO_ENV_FILE: openwrt-2512-ipq
-  KERNEL66_REPO_TOKEN: ${{ secrets.MY_SECRET_TOKEN }}
 
 jobs:
   prepare:
@@ -139,7 +138,17 @@ jobs:
       - name: Clone OpenWrt source
         working-directory: /workdir
         id: clone
+        env:
+          OPENWRT_REPO_SSH_KEY: ${{ secrets.OPENWRT_REPO_SSH_KEY }}
         run: |
+          if [ -z "$OPENWRT_REPO_SSH_KEY" ]; then
+            echo "::error::secret OPENWRT_REPO_SSH_KEY 未设置（私有仓库只读 Deploy Key 私钥）"
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$OPENWRT_REPO_SSH_KEY" > ~/.ssh/openwrt_repo_key
+          chmod 600 ~/.ssh/openwrt_repo_key
+          export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/openwrt_repo_key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
           git clone --single-branch --branch "$REPO_BRANCH" "$REPO_URL" openwrt
           ln -sf /workdir/openwrt "$GITHUB_WORKSPACE/openwrt"
           cd openwrt
