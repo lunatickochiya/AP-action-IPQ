@@ -1,0 +1,32 @@
+From 5c1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c Mon Sep 17 00:00:00 2001
+From: lunatickochiya <125438787@qq.com>
+Date: Mon, 19 Oct 2026 21:00:00 +0800
+Subject: [PATCH] qualcommax: ap8220: enlarge ramoops zones to 128 KiB
+
+The ipq8074 dtsi reserves a 1 MiB ramoops region for the pstore RAM
+backend but hands only 16 KiB to each of the dmesg record and the console
+zone, so a panic/oops dump longer than 16 KiB is cut down to its last
+16 KiB.  The AP8220 has 1 GiB of RAM and the region is already reserved,
+so override both zones with 128 KiB: the dmesg zone then keeps six
+records of up to 128 KiB each (the rest of the 1 MiB region) and the full
+panic trace together with the preceding dmesg survives in
+/sys/fs/pstore.
+
+record-size/console-size are powers of two and 4 KiB aligned, which is
+what fs/pstore/zone.c check_size() asks for.
+
+Signed-off-by: lunatickochiya <125438787@qq.com>
+---
+ target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq8071-ap8220.dts | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+--- a/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq8071-ap8220.dts
++++ b/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq8071-ap8220.dts
+@@ -343,2 +343,7 @@
+ 	qcom,ath11k-calibration-variant = "Aliyun-AP8220";
+ };
++
++&ramoops_region {
++	record-size = <0x20000>;
++	console-size = <0x20000>;
++};
