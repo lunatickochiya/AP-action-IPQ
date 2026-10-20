@@ -945,6 +945,7 @@ function remove_error_package_not_install() {
 		"luci-app-filebrowser"
 		"luci-app-filemanager"
 		"luci-app-dockerman"
+		"luci-app-argon-config"
 	)
 
 	for package in "${packages[@]}"; do
