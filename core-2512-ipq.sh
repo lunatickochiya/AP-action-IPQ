@@ -962,6 +962,7 @@ function remove_error_package_not_install() {
 		"feeds/lunatic7/shortcut-fe"
 		"feeds/lunatic7/fullconenat-nft"
 		"feeds/lunatic7/luci-app-turboacc"
+		"feeds/lunatic7/luci-app-argon-config"
 		"feeds/packages/net/xray-core"
 		"feeds/packages/net/smartdns"
 	)
