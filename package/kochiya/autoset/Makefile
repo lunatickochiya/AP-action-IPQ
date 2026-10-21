@@ -299,6 +299,8 @@ define Package/autoset/install
 	$(CP) ./files/luci-mod-status-autoset.json $(1)/usr/share/rpcd/acl.d/
 	$(INSTALL_DIR) $(1)/www/luci-static/resources/view/status/include
 	$(INSTALL_DATA) ./files/generic/11_sysinfo.js $(1)/www/luci-static/resources/view/status/include/
+	$(INSTALL_DIR) $(1)/usr/libexec/autoset
+	$(INSTALL_BIN) ./files/generic/sysinfo $(1)/usr/libexec/autoset/sysinfo
 endef
 
 define Package/autoset-uci-rockchip/install

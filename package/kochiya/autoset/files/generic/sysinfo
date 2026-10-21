@@ -1,0 +1,63 @@
+#!/bin/sh
+# 概览页「系统信息」卡片数据源
+#
+# 输出一行一个 KEY=VALUE，供 11_sysinfo.js 解析。
+# 数据全部来自本机脚本/内核接口，不依赖 luci 补丁提供的 RPC。
+
+# 多行输出压成一行，避免破坏 KEY=VALUE 格式
+one_line() {
+	tr '\n' ' ' | sed -e 's/  */ /g' -e 's/^ //' -e 's/ $//'
+}
+
+# 固件编译时间（Unix 时间戳）：OpenWrt 24.10+ 在 os-release 里提供
+builddate="$(sed -n 's/^OPENWRT_BUILD_DATE=//p' /usr/lib/os-release /etc/os-release 2>"/dev/null" | tr -d '"' | head -n1)"
+
+# CPU 型号 / 核心数 / 频率 / 温度
+cpuinfo=""
+[ -x /sbin/cpuinfo ] && cpuinfo="$(/sbin/cpuinfo 2>"/dev/null" | one_line)"
+if [ -z "$cpuinfo" ]; then
+	arch="$(awk -F ': ' '/model name|Hardware|Processor/ {print $2; exit}' /proc/cpuinfo 2>"/dev/null")"
+	[ -n "$arch" ] || arch="$(uname -m)"
+	cores="$(grep -c '^processor' /proc/cpuinfo 2>"/dev/null")"
+	cpuinfo="${arch} x ${cores:-1}"
+fi
+
+# 温度（CPU / WiFi / PON 等）
+tempinfo=""
+[ -x /sbin/tempinfo ] && tempinfo="$(/sbin/tempinfo 2>"/dev/null" | one_line)"
+if [ -z "$tempinfo" ] && [ -r /sys/class/thermal/thermal_zone0/temp ]; then
+	tempinfo="CPU: $(awk '{printf("%.1f°C", $0 / 1000)}' /sys/class/thermal/thermal_zone0/temp)"
+fi
+
+# 使用率（qualcommax 带 NPU/ECM，mediatek/airoha 带 PPE 统计）
+usage=""
+[ -x /sbin/usage ] && usage="$(/sbin/usage 2>"/dev/null" | one_line)"
+if [ -z "$usage" ]; then
+	usage="CPU: $(busybox top -n1 2>"/dev/null" | awk '/^CPU/ {printf("%d%%", 100 - $8)}')"
+fi
+
+# 在线用户数：LAN 上 ARP 可达的条目
+lan_dev=""
+if [ -x /usr/bin/jsonfilter ]; then
+	lan_dev="$(ubus call network.interface.lan status 2>"/dev/null" | /usr/bin/jsonfilter -e '@.l3_device' 2>"/dev/null")"
+fi
+[ -n "$lan_dev" ] || lan_dev="$(uci -q get network.lan.device 2>"/dev/null")"
+[ -n "$lan_dev" ] || lan_dev="$(uci -q get network.lan.ifname 2>"/dev/null")"
+if [ -n "$lan_dev" ]; then
+	lan_dev="${lan_dev%% *}"
+	users="$(awk -v dev="$lan_dev" 'NR > 1 && $3 == "0x2" && $6 == dev { n++ } END { print n + 0 }' /proc/net/arp 2>"/dev/null")"
+else
+	users="$(awk 'NR > 1 && $3 == "0x2" { n++ } END { print n + 0 }' /proc/net/arp 2>"/dev/null")"
+fi
+
+# CPU 跑分（CpuMark）
+cpubench=""
+[ -r /etc/bench.log ] && \
+	cpubench="$(sed -n 's/.*CpuMark[^0-9]*\([0-9.]\{1,\}\).*/\1/p' /etc/bench.log 2>"/dev/null" | head -n1)"
+
+printf 'BUILDDATE=%s\n' "$builddate"
+printf 'CPUINFO=%s\n' "$cpuinfo"
+printf 'TEMPINFO=%s\n' "$tempinfo"
+printf 'USAGE=%s\n' "$usage"
+printf 'USERS=%s\n' "$users"
+printf 'CPUBENCH=%s\n' "$cpubench"
