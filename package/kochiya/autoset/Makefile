@@ -297,6 +297,8 @@ endef
 define Package/autoset/install
 	$(INSTALL_DIR) $(1)/usr/share/rpcd/acl.d
 	$(CP) ./files/luci-mod-status-autoset.json $(1)/usr/share/rpcd/acl.d/
+	$(INSTALL_DIR) $(1)/www/luci-static/resources/view/status/include
+	$(INSTALL_DATA) ./files/generic/11_sysinfo.js $(1)/www/luci-static/resources/view/status/include/
 endef
 
 define Package/autoset-uci-rockchip/install
@@ -318,6 +320,8 @@ define Package/autoset-uci-mediatek/install
 	$(INSTALL_DIR) $(1)/etc/uci-defaults
 	$(INSTALL_BIN) ./files/def_uci/zzz-autoset-mediatek $(1)/etc/uci-defaults/zz99-autoset
 	$(INSTALL_BIN) ./files/def_uci/998-wireless-set $(1)/etc/uci-defaults/z998-wireless
+	$(INSTALL_DIR) $(1)/sbin
+	$(INSTALL_BIN) ./files/arm/usage $(1)/sbin/usage
 endef
 
 define Package/autoset-uci-ramips/install

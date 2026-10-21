@@ -1,32 +1,62 @@
 #!/bin/sh
+. /etc/openwrt_release
+[ -r /etc/os-release ] && . /etc/os-release
 
-NSS_PATH="/sys/kernel/debug/qca-nss-drv/stats"
+# 板级标识：OPENWRT_BOARD 优先（如 qualcommax/ipq807x），老固件退回 DISTRIB_TARGET
+BOARD="${OPENWRT_BOARD:-$DISTRIB_TARGET}"
 
-cpu_usage="$(busybox top -n1 | awk '/^CPU/ {printf("%d", 100 - $8)}')"
+cpu_usage="$(busybox top -n1 2>/dev/null | awk '/^CPU/ {printf("%d", 100 - $8)}')"
+[ -n "$cpu_usage" ] || cpu_usage="?"
 
-combined_output=""
+case "$BOARD" in
 
-connection_count=""
+qualcommax/*|ipq806x/*)
+	NSS_PATH="/sys/kernel/debug/qca-nss-drv/stats"
 
-[ ! -d "$NSS_PATH" ] || \
-npu_usage="$(grep '%' "$NSS_PATH"/cpu_load_ubi | awk -F ' ' '{print $2}')"
+	combined_output=""
 
-if [ -e "/sys/kernel/debug/qca-nss-drv/stats/cpu_load_ubi" ]; then
-	nss_avg_utilization=$(awk 'NR==6 {print $2}' /sys/kernel/debug/qca-nss-drv/stats/cpu_load_ubi)
-	combined_output="${combined_output}${nss_avg_utilization}"
-fi
+	connection_count=""
 
-if [ -r "/sys/kernel/debug/ecm/ecm_db/connection_count_simple" ]; then
-	connection_count=$(cat /sys/kernel/debug/ecm/ecm_db/connection_count_simple)
-fi
+	if [ -e "$NSS_PATH/cpu_load_ubi" ]; then
+		nss_avg_utilization="$(awk 'NR==6 {print $2}' "$NSS_PATH/cpu_load_ubi")"
+		combined_output="${combined_output}${nss_avg_utilization}"
+	fi
 
+	if [ -r "/sys/kernel/debug/ecm/ecm_db/connection_count_simple" ]; then
+		connection_count="$(cat /sys/kernel/debug/ecm/ecm_db/connection_count_simple)"
+	fi
 
-if [ -n "$combined_output" ] && [ -n "$connection_count" ]; then
-	echo -n "CPU: ${cpu_usage}% NPU: ${combined_output} ECM: ${connection_count} "
-elif [ -n "$combined_output" ]; then
-	echo -n "CPU: ${cpu_usage}% NPU: ${combined_output} "
-elif [ -n "$connection_count" ]; then
-	echo -n "CPU: ${cpu_usage}% ECM: ${connection_count} "
-else
+	if [ -n "$combined_output" ] && [ -n "$connection_count" ]; then
+		echo -n "CPU: ${cpu_usage}% NPU: ${combined_output} ECM: ${connection_count} "
+	elif [ -n "$combined_output" ]; then
+		echo -n "CPU: ${cpu_usage}% NPU: ${combined_output} "
+	elif [ -n "$connection_count" ]; then
+		echo -n "CPU: ${cpu_usage}% ECM: ${connection_count} "
+	else
+		echo -n "CPU: ${cpu_usage}%"
+	fi
+	;;
+
+mediatek/*|airoha/*)
+	set -- $(top -bn1 2>/dev/null | awk 'NR==2 {print $2, $4}')
+	usr="${1:-?}"
+	sys="${2:-?}"
+
+	output="USR: ${usr} SYS: ${sys}"
+
+	for ppe in /sys/kernel/debug/ppe*/entries; do
+		[ -f "$ppe" ] || continue
+
+		name="$(basename "$(dirname "$ppe")" | tr 'a-z' 'A-Z')"
+		set -- $(awk '/IPv4/{a++}/IPv6/{b++} END {print NR, a+0, b+0}' "$ppe")
+
+		output="${output} ${name}: ${1} (IPv4: ${2} IPv6: ${3})"
+	done
+
+	echo -n "CPU: ${cpu_usage}% $output"
+	;;
+
+*)
 	echo -n "CPU: ${cpu_usage}%"
-fi
+	;;
+esac
