@@ -945,7 +945,6 @@ function remove_error_package_not_install() {
 		"luci-app-filebrowser"
 		"luci-app-filemanager"
 		"luci-app-dockerman"
-		"luci-app-argon-config"
 	)
 
 	for package in "${packages[@]}"; do
@@ -953,6 +952,16 @@ function remove_error_package_not_install() {
 		./scripts/feeds uninstall $package
 		echo "软件包 $package 已卸载。"
 	done
+
+	# luci-theme-argon 3.0.0 已内置配置界面（argon-config 的页面/rpcd/菜单文件），
+	# feed 顶层残留的旧 luci-app-argon-config 1.0 仍会安装同一批文件，
+	# 导致 package/install 报 "trying to overwrite ... owned by luci-theme-argon"。
+	# 只有主题自带 compat 空包（负责旧配置迁移）时才删旧包，避免老 feed 下丢配置界面。
+	if [ -d feeds/lunatic7/luci-theme-argon/compat/luci-app-argon-config ]; then
+		echo "卸载并删除旧版 luci-app-argon-config ..."
+		./scripts/feeds uninstall luci-app-argon-config
+		rm -rf feeds/lunatic7/luci-app-argon-config
+	fi
 
 	directories=(
 		"feeds/luci/applications/luci-app-smartdns"
@@ -963,7 +972,6 @@ function remove_error_package_not_install() {
 		"feeds/lunatic7/shortcut-fe"
 		"feeds/lunatic7/fullconenat-nft"
 		"feeds/lunatic7/luci-app-turboacc"
-		"feeds/lunatic7/luci-app-argon-config"
 		"feeds/packages/net/xray-core"
 		"feeds/packages/net/smartdns"
 	)
