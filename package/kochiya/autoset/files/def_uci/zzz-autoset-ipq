@@ -28,7 +28,6 @@ uci -q batch <<-EOF >/dev/null
 	commit
 EOF
 
-sed -i '/DISTRIB_DESCRIPTION/d' /etc/openwrt_release
 
 /etc/init.d/advancedplus stop
 /etc/init.d/advancedplus disable
