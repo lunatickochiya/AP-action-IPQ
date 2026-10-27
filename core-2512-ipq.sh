@@ -100,7 +100,11 @@ function resolve_build_matrix() {
 	fi
 }
 function init_pkg_env() {
-	sudo bash -c 'bash <(curl -sL https://build-scripts.immortalwrt.org/init_build_environment.sh)'
+	# 本地化脚本：去掉上游的 apt full-upgrade（镜像慢时能卡 1~2 小时）
+	local repo_dir
+	repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+	[ -f "$repo_dir/scripts/init_build_environment.sh" ] || repo_dir="${GITHUB_WORKSPACE:-$repo_dir}"
+	sudo bash "$repo_dir/scripts/init_build_environment.sh"
 	sudo -E apt-get -qq install libgnutls28-dev coccinelle libfuse-dev \
 	b43-fwcutter cups-ppdc
 
