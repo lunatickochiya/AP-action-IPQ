@@ -108,7 +108,6 @@ function init_pkg_env() {
 	sudo -E apt-get -qq install libgnutls28-dev coccinelle libfuse-dev \
 	b43-fwcutter cups-ppdc
 
-	sudo npm install -g pnpm
 	clang --version
 
 	sudo timedatectl set-timezone "$TZ"
