@@ -305,6 +305,25 @@ jobs:
       run: |
         $GITHUB_WORKSPACE/core-2410-ipq.sh awk-openwrt-config
 
+    - name: 准备宿主工具链（Rust/Go/LLVM/Python）
+      if: steps.config.outputs.status == 'success'
+      working-directory: ./openwrt
+      run: |
+        # rust：用 runner 的 rustup 替换 rust/host 源码构建
+        bash "$GITHUB_WORKSPACE/.github/scripts/prepare-rust.sh" || \
+          echo "::warning ::Rust 注入失败，回退到源码构建"
+        # Go / eBPF LLVM / host Python PGO：能用 runner 的就不从源码编
+        bash "$GITHUB_WORKSPACE/.github/scripts/prepare-build-host.sh" || \
+          echo "::warning ::宿主工具链准备失败，保持 OpenWrt 默认行为"
+
+    - name: 注入编译耗时统计
+      if: steps.config.outputs.status == 'success'
+      working-directory: ./openwrt
+      run: |
+        python3 "$GITHUB_WORKSPACE/.github/scripts/patch-build-time-log.py" . \
+          --scripts-dir "$GITHUB_WORKSPACE/.github/scripts" || \
+          echo "::warning ::编译耗时统计注入失败，跳过报告"
+
     - name: 下载包文件
       if: steps.config.outputs.status == 'success'
       run: |
@@ -325,13 +344,55 @@ jobs:
         prefix: ${{ github.workspace }}/openwrt
         skip_saving: ${{ env.CacheSave }}
 
+    - name: 修正工具链缓存时间戳
+      # actions/cache 解压后 mtime 可能早于源码，make 会把 host/tool stamp 判为过期。
+      if: (!cancelled())
+      working-directory: ./openwrt
+      run: |
+        if [ -d staging_dir ]; then
+          find staging_dir -type d -name stamp -not -path "*target*" -print0 2>/dev/null |
+            while IFS= read -r -d '' d; do
+              find "$d" -type f -exec touch {} + 2>/dev/null || true
+            done
+        fi
+        mkdir -p tmp
+        echo 1 > tmp/.build
+
     - name: 编译固件
       id: compile
       working-directory: ./openwrt
+      env:
+        # 每个包的 prepare/configure/compile/install 起止时间
+        BUILD_TIME_LOG: 'build-time.tsv'
       run: |
         echo -e "$(($(nproc)+1)) thread compile"
         make -j$(($(nproc)+1)) || make -j1 V=s
         echo "status=success" >> $GITHUB_OUTPUT
+
+    - name: 生成编译耗时报告
+      # 失败也生成，便于判断是哪个包/阶段拖慢或卡住
+      if: always()
+      continue-on-error: true
+      working-directory: ./openwrt
+      run: |
+        if [ -s build-time.tsv ]; then
+          scripts/build-time-report.pl -n 30 build-time.tsv > build-time-report.txt 2>&1 || true
+          cp -f build-time-report.txt "$GITHUB_WORKSPACE/build-time-report.txt" || true
+          echo "===== 编译耗时 Top 30 ====="
+          cat build-time-report.txt || true
+        else
+          echo "::notice ::没有 build-time.tsv，跳过耗时报告"
+        fi
+
+    - name: 上传编译耗时报告
+      if: always()
+      continue-on-error: true
+      uses: actions/upload-artifact@main
+      with:
+        name: build-time-${{ matrix.target }}
+        path: build-time-report.txt
+        if-no-files-found: ignore
+        retention-days: 7
 
     - name: 检查空间使用情况
       if: (!cancelled())
