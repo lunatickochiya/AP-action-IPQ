@@ -309,7 +309,7 @@ jobs:
       run: |
         command -v zstd >/dev/null || sudo apt-get install -y -qq zstd
         TC_HASH=$(git log --pretty=tformat:"%h" -n1 tools toolchain)
-        TC_TARGET="${Matrix_Target%-iptables}"
+        TC_TARGET="${{ matrix.target }}"
         TC_TARGET="${TC_TARGET%-nftables}"
         TC_SUFFIX="${eBPF:-}"
         ASSET="toolchain-${OpenWrt_PATCH_FILE_DIR}-${TC_TARGET}${TC_SUFFIX}-${TC_HASH}.tar.zst"
