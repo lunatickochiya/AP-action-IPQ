@@ -1,0 +1,291 @@
+name: Build Toolchain Cache (IPQ50XX)
+
+# Fix for broken build: https://github.com/softprops/action-gh-release/issues/236
+permissions:
+  contents: write
+  actions: write
+
+on:
+  repository_dispatch:
+  workflow_dispatch:
+    inputs:
+      config_repo:
+        description: 'Use json config repo true(1) or false(0) See ReadME'
+        required: true
+        default: '{"Cache": "1", "CacheSaveOnFailure": "true", "UPLOAD_RELEASE": "1", "ALLKMOD": "1"}'
+
+      MACH:
+        description: 'Choose machine'
+        required: true
+        default: 'cmcc_rax3000qy'
+        type: choice
+        options:
+        - 'cmcc_rax3000qy'
+        - 'cmcc_rax3000q'
+
+      SFE_BUILDIN:
+        description: 'Build sfe'
+        default: 'false'
+        type: choice
+        options:
+        - 'true'
+        - 'false'
+
+      packages:
+        description: 'OpenWrt packages（example: luci-app-example,luci-app-helloworld）'
+        required: true
+        default: 'luci-app-example,luci-app-example2'
+      packages_mod:
+        description: 'The Above packages set to which'
+        default: 'm'
+        type: choice
+        options:
+        - 'y'
+        - 'm'
+        - 'n'
+
+      SETIP:
+        description: 'Set ip address'
+        default: '192.168.7.1'
+        required: false
+        type: choice
+        options:
+        - '192.168.6.1'
+        - '192.168.7.1'
+        - '192.168.8.1'
+        - '192.168.8.6'
+        - '192.168.8.8'
+        - '192.168.9.1'
+        - '192.168.10.1'
+        - '192.168.11.1'
+        - '192.168.12.1'
+        - '192.168.16.1'
+        - '192.168.17.1'
+        - '192.168.18.1'
+        - '192.168.19.1'
+        - '192.168.20.1'
+        - '192.168.22.1'
+        - '192.168.33.1'
+        - '192.168.66.1'
+        - '192.168.67.1'
+        - '192.168.77.1'
+        - '192.168.78.1'
+        - '192.168.87.1'
+        - '192.168.88.1'
+        - '192.168.89.1'
+        - '192.168.96.1'
+        - '192.168.99.1'
+        - '192.168.100.1'
+        - '192.168.110.1'
+        - '192.168.120.1'
+        - '192.168.160.1'
+        - '192.168.166.1'
+        - '192.168.167.1'
+        - '192.168.177.1'
+        - '192.168.188.1'
+        - '172.16.0.1'
+        - '172.18.0.1'
+        - '10.0.0.1'
+        - '10.88.0.1'
+
+      patch_repo:
+        description: 'Use json patch repo true(1) or false(0) See ReadME'
+        required: true
+        default: '{"Branch": "ipq50xx-hzyitc-mod","OPENSSL_3_5": "0", "BCM_FULLCONE": "0", "TRY_BBR_V3": "0", "Firewall_Allow_WAN": "1", "ADD_IB": "0", "ADD_SDK": "0", "DOCKER_BUILDIN": "0"}'
+
+env:
+  TZ: Asia/Shanghai
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    strategy:
+      matrix:
+        include:
+        - ipq: cmcc_rax3000qy
+        - ipq: cmcc_rax3000q
+
+    steps:
+      - name: 检查
+        uses: actions/checkout@main
+      
+      - name: 生成矩阵配置
+        id: set-matrix
+        run: |
+          if [ "${{ github.event.inputs.MACH }}" == "${{ matrix.mt798x }}" ]; then
+            matrix={\"include\":[{\"target\":\"mt798x-iptables\"},{\"target\":\"mt798x-nftables\"}]}
+          elif [ "${{ github.event.inputs.MACH }}" == "${{ matrix.mt798x-nousb }}" ]; then
+            matrix={\"include\":[{\"target\":\"mt798x-nousb-iptables\"},{\"target\":\"mt798x-nousb-nftables\"}]}
+          elif [ "${{ github.event.inputs.MACH }}" == "${{ matrix.ramips }}" ]; then
+            matrix={\"include\":[{\"target\":\"ramips-iptables\"},{\"target\":\"ramips-nftables\"}]}
+          elif [ "${{ github.event.inputs.MACH }}" == "${{ matrix.ath79 }}" ]; then
+            matrix={\"include\":[{\"target\":\"ath79-iptables\"},{\"target\":\"ath79-nftables\"}]}
+          elif [ "${{ github.event.inputs.MACH }}" == "${{ matrix.ipq }}" ]; then
+            matrix={\"include\":[{\"target\":\"ipq-iptables\"}]}
+            matrix2410={\"include\":[{\"target\":\"ipq-iptables\"},{\"target\":\"ipq-nftables\"}]}
+          fi
+          echo "Generated matrix: "$matrix""
+          echo "matrix=$matrix" >> $GITHUB_OUTPUT
+ 
+  toolchain:
+    runs-on: Ubuntu-24.04
+    needs: prepare
+    env:
+      Matrix_Target: ${{ matrix.target }}
+      Target_CFG_Machine: ${{github.event.inputs.MACH}}
+      OpenWrt_PATCH_FILE_DIR: openwrt-ipq50xx
+    strategy:
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    name: Build ${{github.event.inputs.MACH}} openwrt ipq
+
+    steps:
+    - name: 检查
+      uses: actions/checkout@main
+
+    - name: Print matrix from prepare
+      run: |
+         echo "::notice ::Matrix from prepare: ${{ needs.prepare.outputs.matrix }}"
+
+    - name: 释放Ubuntu磁盘空间
+      uses: endersonmenezes/free-disk-space@v2
+      with:
+        remove_android: true
+        remove_dotnet: true
+        remove_haskell: true
+        remove_tool_cache: true
+        remove_swap: true
+        remove_packages: "azure-cli google-cloud-cli microsoft-edge-stable google-chrome-stable firefox postgresql* temurin-* *llvm* mysql* dotnet-sdk-*"
+        remove_packages_one_command: true
+        remove_folders: "/usr/share/swift /usr/share/miniconda /usr/share/az* /usr/share/glade* /usr/local/lib/node_modules /usr/local/share/chromium /usr/local/share/powershell"
+        testing: false
+  
+    - name: 初始化环境
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        chmod +x gen-sha256sum.sh add-test-packages.sh add-sfe-packages.sh core-2410-ipq.sh core-neo.sh
+        $GITHUB_WORKSPACE/core-neo.sh init-pkg-env
+
+    - name: 设置GITHUB_ENV
+      id: env
+      env:
+        PATCH_JSON_INPUT: ${{ github.event.inputs.patch_repo }}
+        CONFIG_JSON_INPUT: ${{ github.event.inputs.config_repo }}
+      run: |
+        echo ${{matrix.target}}
+        $GITHUB_WORKSPACE/core-neo.sh init-gh-env-2410-ipq
+
+    - name: 克隆源代码
+      working-directory: /workdir
+      id: clone
+      run: |
+        df -hT $PWD
+        git clone $REPO_URL -b $Branch openwrt --single-branch
+        ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+        cd openwrt
+        sed -i \
+          -e 's|https://git.openwrt.org/feed/packages.git|https://github.com/openwrt/packages.git|' \
+          -e 's|https://git.openwrt.org/project/luci.git|https://github.com/openwrt/luci.git|' \
+          -e 's|https://git.openwrt.org/feed/routing.git|https://github.com/openwrt/routing.git|' \
+          -e 's|https://git.openwrt.org/feed/telephony.git|https://github.com/openwrt/telephony.git|' \
+          feeds.conf.default
+        # sed -i '$a src-git lunatic7 https://github.com/lunatickochiya/luna-action-packages.git' feeds.conf.default
+        cd ../
+        echo "status=success" >> $GITHUB_OUTPUT
+
+    - name: 增加磁盘空间
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        $GITHUB_WORKSPACE/core-neo.sh ln-openwrt
+
+    - name: Patch 自定义
+      id: patch
+      run: |
+        $GITHUB_WORKSPACE/core-neo.sh init-openwrt-patch-2410-ipq
+        echo "status=success" >> $GITHUB_OUTPUT
+
+    - name: 自定义安装包(优先于feeds)
+      if: steps.clone.outputs.status == 'success'
+      id: files
+      env:
+        SFE_INPUT_STATUS: ${{ github.event.inputs.SFE_BUILDIN }}
+      run: |
+        $GITHUB_WORKSPACE/core-neo.sh add-openwrt-files-2410
+        echo "status=success" >> $GITHUB_OUTPUT
+
+    - name: 设置 IP 地址
+      if: github.event.inputs.SETIP != '192.168.10.1'
+      id: setip
+      run: |
+        IPSET_VALUE="${{ github.event.inputs.SETIP }}"
+        sed -i "s/192\.168\.10\.1/$IPSET_VALUE/g" openwrt/package/kochiya/autoset/files/def_uci/zzz-autoset*
+        grep 'set network.lan.ipaddr=' openwrt/package/kochiya/autoset/files/def_uci/zzz-autoset*
+        echo "status=success" >> $GITHUB_OUTPUT
+
+    - name: 更新 & 安装 feeds
+      if: steps.files.outputs.status == 'success'
+      id: feeds
+      run: |
+        cd openwrt
+        ./scripts/feeds update -a
+        ./scripts/feeds install -a
+        echo "status=success" >> $GITHUB_OUTPUT
+
+    - name: 自定义配置（修复feeds）
+      if: steps.feeds.outputs.status == 'success'
+      id: config
+      env:
+        INPUT_PKGS_CFG_STATUS: ${{ github.event.inputs.packages_mod }}
+        INPUT_PKGS_CFG_FOO: ${{ github.event.inputs.packages }}
+        SFE_INPUT_STATUS: ${{ github.event.inputs.SFE_BUILDIN }}
+      run: |
+        $GITHUB_WORKSPACE/core-neo.sh fix-openwrt-feeds
+        echo "status=success" >> $GITHUB_OUTPUT
+
+    - name: 添加kmod
+      if: steps.config.outputs.status == 'success' && env.ALLKMOD == '1'
+      id: config2
+      run: |
+        $GITHUB_WORKSPACE/core-neo.sh add-openwrt-kmods
+        echo "status=success" >> $GITHUB_OUTPUT
+
+    - name: Run awk command
+      if: steps.config.outputs.status == 'success'
+      working-directory: ./openwrt
+      run: |
+        $GITHUB_WORKSPACE/core-neo.sh awk-openwrt-config
+
+    - name: 编译 tools + toolchain
+      working-directory: ./openwrt
+      run: |
+        echo -e "$(nproc) thread toolchain compile"
+        make -j$(nproc) tools/install toolchain/install
+
+    - name: 打包并上传工具链缓存到 Release
+      working-directory: ./openwrt
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+      run: |
+        command -v zstd >/dev/null || sudo apt-get install -y -qq zstd
+        TC_HASH=$(git log --pretty=tformat:"%h" -n1 tools toolchain)
+        TC_TARGET="${Matrix_Target%-iptables}"
+        TC_TARGET="${TC_TARGET%-nftables}"
+        TC_SUFFIX="${eBPF:-}"
+        ASSET="toolchain-${OpenWrt_PATCH_FILE_DIR}-${TC_TARGET}${TC_SUFFIX}-${TC_HASH}.tar.zst"
+        echo "toolchain hash: $TC_HASH / asset: $ASSET"
+        gh release view toolchain-cache >/dev/null 2>&1 || \
+          gh release create toolchain-cache -t "toolchain-cache" -n "Independent toolchain caches for firmware builds"
+        tar -cf - staging_dir/host* staging_dir/tool* | zstd -3 -T0 -q -o "/tmp/$ASSET"
+        ls -lh "/tmp/$ASSET"
+        gh release upload toolchain-cache "/tmp/$ASSET" --clobber
+        # 同一 target/eBPF 只保留最新一份，避免 Release 资产无限增长
+        gh release view toolchain-cache --json assets --jq '.assets[].name' 2>/dev/null |
+          grep -F "toolchain-${OpenWrt_PATCH_FILE_DIR}-${TC_TARGET}${TC_SUFFIX}-" |
+          grep -vxF "$ASSET" |
+          while read -r old; do
+            [ -n "$old" ] && gh release delete-asset toolchain-cache "$old" -y || true
+          done

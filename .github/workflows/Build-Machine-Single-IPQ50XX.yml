@@ -285,6 +285,7 @@ jobs:
         find dl -size -1024c -exec rm -f {} \;
 
     - name: 缓存
+      id: cache
       # fork（lunatickochiya/cachewrtbuild@save-on-failure）：config_repo 的
       # CacheSaveOnFailure（默认 "true"）由 core-neo.sh 导出成 env
       # CACHEWRT_SAVE_ON_FAILURE，fork 的 post-if 读它 —— 编译失败也执行 post 保存，
@@ -296,6 +297,30 @@ jobs:
         mixkey: ${{ matrix.target }}
         clean: ${{ contains(github.event.action, 'nocache') }}
         prefix: ${{ github.workspace }}/openwrt
+
+    - name: 恢复工具链（Release 兜底）
+      # Actions cache 未命中时，从 toolchain-cache Release 下载同 target/同 tools+toolchain
+      # hash 的压缩包；没有就退回现场编译，不阻断构建。
+      if: env.Cache == '1' && steps.cache.outputs.hit != '1'
+      working-directory: ./openwrt
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+      run: |
+        command -v zstd >/dev/null || sudo apt-get install -y -qq zstd
+        TC_HASH=$(git log --pretty=tformat:"%h" -n1 tools toolchain)
+        TC_TARGET="${Matrix_Target%-iptables}"
+        TC_TARGET="${TC_TARGET%-nftables}"
+        TC_SUFFIX="${eBPF:-}"
+        ASSET="toolchain-${OpenWrt_PATCH_FILE_DIR}-${TC_TARGET}${TC_SUFFIX}-${TC_HASH}.tar.zst"
+        if gh release download toolchain-cache -p "$ASSET" -D /tmp --clobber 2>/dev/null; then
+          echo "从 Release 恢复工具链：$ASSET"
+          tar --zstd -xf "/tmp/$ASSET" -C .
+          sed -i 's/ $(tool.*\/stamp-compile)//;' Makefile
+          sed -i 's/ $(tool.*\/stamp-install)//;' Makefile
+        else
+          echo "::notice ::未找到 $ASSET，本次现场编译工具链"
+        fi
 
     - name: 修正工具链缓存时间戳
       # actions/cache 解压后 mtime 可能早于源码，make 会把 host/tool stamp 判为过期。
