@@ -31,22 +31,6 @@ def die(msg):
     sys.exit(1)
 
 
-def insert_after(lines, needle, newline, start=0):
-    for i in range(start, len(lines)):
-        if lines[i].strip().startswith(needle):
-            lines.insert(i + 1, newline)
-            return i + 1
-    die("anchor not found: " + needle)
-
-
-def insert_before(lines, needle, newline, start=0):
-    for i in range(start, len(lines)):
-        if lines[i].strip() == needle:
-            lines.insert(i, newline)
-            return i
-    die("anchor not found: " + needle)
-
-
 def patch_rules(tree):
     path = os.path.join(tree, "rules.mk")
     text = open(path, encoding="utf-8").read()
@@ -59,7 +43,8 @@ def patch_rules(tree):
             lines[i:i] = BLOCK.rstrip("\n").splitlines() + [""]
             break
     else:
-        die("PKG_INFO_DIR not found in rules.mk")
+        print("::warning ::patch-build-time-log: PKG_INFO_DIR not found in rules.mk, skip")
+        return
     open(path, "w", encoding="utf-8").write("\n".join(lines).rstrip("\n") + "\n")
     print("patched rules.mk")
 
@@ -74,29 +59,60 @@ def patch_package_mk(tree):
 
     stages = [
         ("$(STAMP_PREPARED): $(STAMP_PREPARED_DEPENDS)", "prepare",
-         "$(foreach hook,$(Hooks/Prepare/Post)"),
+         ["$(foreach hook,$(Hooks/Prepare/Post)"]),
         ("$(STAMP_CONFIGURED): $(STAMP_PREPARED) $(STAMP_CONFIGURED_DEPENDS)", "configure",
-         "$(foreach hook,$(Hooks/Configure/Post)"),
+         ["$(foreach hook,$(Hooks/Configure/Post)"]),
         ("$(STAMP_BUILT): $(STAMP_CONFIGURED) $(STAMP_BUILT_DEPENDS)", "compile",
-         "$(foreach hook,$(Hooks/Install/Post)"),
+         ["$(foreach hook,$(Hooks/Install/Post)"]),
         ("$(STAMP_INSTALLED): $(STAMP_BUILT)", "install",
-         "rm -rf $(TMP_DIR)/stage-$(PKG_DIR_NAME)"),
+         ["rm -rf $(STAGING_TMP_DIR)", "rm -rf $(TMP_DIR)/stage-$(PKG_DIR_NAME)"]),
     ]
 
-    for target, stage, anchor in stages:
-        begin_at = insert_after(lines, target, "\t$(call BuildTimeLog,begin,%s)" % stage)
-        # The end marker goes just before the `touch $$@` that closes this target.
+    done = 0
+    for target, stage, anchors in stages:
+        target_at = None
+        for i, line in enumerate(lines):
+            if line.strip().startswith(target):
+                target_at = i
+                break
+        if target_at is None:
+            print("::warning ::patch-build-time-log: target not found: %s, skip" % stage)
+            continue
+        lines.insert(target_at + 1, "\t$(call BuildTimeLog,begin,%s)" % stage)
+        begin_at = target_at + 1
+
         anchor_at = None
-        for i in range(begin_at, len(lines)):
-            if anchor in lines[i]:
-                anchor_at = i
+        for anchor in anchors:
+            for i in range(begin_at, len(lines)):
+                if anchor in lines[i]:
+                    anchor_at = i
+                    break
+            if anchor_at is not None:
                 break
         if anchor_at is None:
-            die("stage anchor not found: %s (%s)" % (anchor, stage))
-        insert_before(lines, "touch $$@", "\t$(call BuildTimeLog,end,%s)" % stage, anchor_at)
+            print("::warning ::patch-build-time-log: stage anchor not found: %s, skip" % stage)
+            del lines[begin_at]
+            continue
+
+        end_at = None
+        for i in range(anchor_at, len(lines)):
+            if lines[i].strip() == "touch $$@":
+                end_at = i
+                break
+        if end_at is None:
+            print("::warning ::patch-build-time-log: end marker not found: %s, skip" % stage)
+            del lines[begin_at]
+            continue
+
+        lines.insert(end_at, "\t$(call BuildTimeLog,end,%s)" % stage)
+        done += 1
+
+    if done == 0:
+        print("::warning ::patch-build-time-log: no stages instrumented (unsupported tree?)")
+    else:
+        print("patched include/package.mk (%d stages)" % done)
 
     open(path, "w", encoding="utf-8").write("\n".join(lines).rstrip("\n") + "\n")
-    print("patched include/package.mk")
 
 
 def main():
