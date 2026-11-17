@@ -3,10 +3,18 @@
 #
 # 输出一行一个 KEY=VALUE，供 11_sysinfo.js 解析。
 # 数据全部来自本机脚本/内核接口，不依赖 luci 补丁提供的 RPC。
+#
+# 多行字段（温度/使用率）用字面量 \n 编码，仍然保持一行一个 KEY=VALUE，
+# 由 11_sysinfo.js 还原成换行显示。
 
-# 多行输出压成一行，避免破坏 KEY=VALUE 格式
+# 多行输出压成一行（用于 CPUINFO 等单行字段）
 one_line() {
 	tr '\n' ' ' | sed -e 's/  */ /g' -e 's/^ //' -e 's/ $//'
+}
+
+# 多行文本编码成字面量 \n（KEY=VALUE 协议仍是单行）
+encode_lines() {
+	awk 'BEGIN { ORS = "" } { if (NR > 1) printf "\\n"; printf "%s", $0 }'
 }
 
 # 固件编译时间（Unix 时间戳）：OpenWrt 24.10+ 在 os-release 里提供
@@ -22,18 +30,27 @@ if [ -z "$cpuinfo" ]; then
 	cpuinfo="${arch} x ${cores:-1}"
 fi
 
-# 温度（CPU / WiFi / PON 等）
+# 温度（CPU / NSS / WiFi / PHY，每项带传感器名）
 tempinfo=""
-[ -x /sbin/tempinfo ] && tempinfo="$(/sbin/tempinfo 2>"/dev/null" | one_line)"
+[ -x /sbin/tempinfo ] && tempinfo="$(/sbin/tempinfo 2>"/dev/null" | encode_lines)"
 if [ -z "$tempinfo" ] && [ -r /sys/class/thermal/thermal_zone0/temp ]; then
-	tempinfo="CPU: $(awk '{printf("%.1f°C", $0 / 1000)}' /sys/class/thermal/thermal_zone0/temp)"
+	# 回退：优先真正的 cpu-thermal，而不是 IPQ 上的 zone0（nss-top-thermal）
+	temp_zone=""
+	for z in /sys/class/thermal/thermal_zone*; do
+		[ -r "$z/temp" ] || continue
+		[ "$(cat "$z/type" 2>"/dev/null")" = "cpu-thermal" ] || continue
+		temp_zone="$z"
+		break
+	done
+	[ -n "$temp_zone" ] || temp_zone="/sys/class/thermal/thermal_zone0"
+	tempinfo="CPU: $(awk '{printf "%.1f°C", $0 / 1000}' "$temp_zone/temp" 2>"/dev/null") ($(cat "$temp_zone/type" 2>"/dev/null"))"
 fi
 
-# 使用率（qualcommax 带 NPU/ECM，mediatek/airoha 带 PPE 统计）
+# 使用率（qualcommax 带 CPU/NSS/ECM 明细，其他平台沿用 /sbin/usage）
 usage=""
-[ -x /sbin/usage ] && usage="$(/sbin/usage 2>"/dev/null" | one_line)"
+[ -x /sbin/usage ] && usage="$(/sbin/usage 2>"/dev/null" | encode_lines)"
 if [ -z "$usage" ]; then
-	usage="CPU: $(busybox top -n1 2>"/dev/null" | awk '/^CPU/ {printf("%d%%", 100 - $8)}')"
+	usage="CPU: $(busybox top -n1 2>"/dev/null" | awk '/^CPU/ {printf "%d%%", 100 - $8}')"
 fi
 
 # 在线用户数：LAN 上 ARP 可达的条目

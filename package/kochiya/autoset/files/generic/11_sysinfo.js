@@ -43,9 +43,10 @@ function parseKV(out) {
 	return kv;
 }
 
+/* helper 里的多行字段用字面量 \n 编码，这里还原成换行 */
 function text(txt) {
 	return E('span', { 'style': 'white-space:pre-line' },
-		(txt == null || txt === '') ? '—' : txt);
+		(txt == null || txt === '') ? '—' : String(txt).replace(/\\n/g, '\n'));
 }
 
 function row(label, valueEl) {

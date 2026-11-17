@@ -1,48 +1,49 @@
 #!/bin/sh
+# 使用率：CPU（总/usr/sys）、NSS 负载、ECM 连接数
+#
+# 输出多行文本，供 /usr/libexec/autoset/sysinfo 转义后给概览页使用。
+# qualcommax 的格式参照 2512 分支 25.12-nss-6.6-dev-1 的 sbin/cpuusage：
+#   USR/SYS 分开、NSS 负载单独一项、ECM 连接数单独一项。
+# 但这里刻意不读 /proc/sys/dev/nss/clock/current_freq：
+# 旧驱动上读该节点会把 NSS 钉到 1497.6MHz 并关闭 stats，
+# 导致 cpu_load_ubi 停更（dev-1 的 cpuusage 有这个问题）。
+
 . /etc/openwrt_release
 [ -r /etc/os-release ] && . /etc/os-release
 
 # 板级标识：OPENWRT_BOARD 优先（如 qualcommax/ipq807x），老固件退回 DISTRIB_TARGET
 BOARD="${OPENWRT_BOARD:-$DISTRIB_TARGET}"
 
-cpu_usage="$(busybox top -n1 2>/dev/null | awk '/^CPU/ {printf("%d", 100 - $8)}')"
-[ -n "$cpu_usage" ] || cpu_usage="?"
+# top -bn1 第 2 行一次给出 总占用 / usr / sys
+cpu_line="$(busybox top -bn1 2>"/dev/null" | awk '/^CPU/ {gsub("%",""); print 100-$8, $2, $4}')"
+set -- $cpu_line
+cpu_usage="${1:-?}"
+cpu_usr="${2:-?}"
+cpu_sys="${3:-?}"
 
 case "$BOARD" in
 
 qualcommax/*|ipq806x/*)
 	NSS_PATH="/sys/kernel/debug/qca-nss-drv/stats"
 
-	combined_output=""
+	# CPU：总占用 + USR/SYS 明细
+	echo "CPU: ${cpu_usage}% (USR ${cpu_usr}% / SYS ${cpu_sys}%)"
 
-	connection_count=""
-
-	if [ -e "$NSS_PATH/cpu_load_ubi" ]; then
-		nss_avg_utilization="$(awk 'NR==6 {print $2}' "$NSS_PATH/cpu_load_ubi")"
-		combined_output="${combined_output}${nss_avg_utilization}"
+	# NSS：负载取 Avg，同时给出 Min/Max
+	if [ -r "$NSS_PATH/cpu_load_ubi" ]; then
+		set -- $(awk 'NR == 6 { gsub(/\t/, " "); print $1, $2, $3 }' "$NSS_PATH/cpu_load_ubi" 2>"/dev/null")
+		[ -n "$1" ] && echo "NSS: load ${2:-?} (min ${1:-?} / max ${3:-?})"
 	fi
 
-	if [ -r "/sys/kernel/debug/ecm/ecm_db/connection_count_simple" ]; then
-		connection_count="$(cat /sys/kernel/debug/ecm/ecm_db/connection_count_simple)"
-	fi
-
-	if [ -n "$combined_output" ] && [ -n "$connection_count" ]; then
-		echo -n "CPU: ${cpu_usage}% NPU: ${combined_output} ECM: ${connection_count} "
-	elif [ -n "$combined_output" ]; then
-		echo -n "CPU: ${cpu_usage}% NPU: ${combined_output} "
-	elif [ -n "$connection_count" ]; then
-		echo -n "CPU: ${cpu_usage}% ECM: ${connection_count} "
-	else
-		echo -n "CPU: ${cpu_usage}%"
+	# ECM：tcp/udp/other/total 连接数
+	if [ -r /sys/kernel/debug/ecm/ecm_db/connection_count_simple ]; then
+		set -- $(cat /sys/kernel/debug/ecm/ecm_db/connection_count_simple 2>"/dev/null")
+		[ -n "$8" ] && echo "ECM: $1 $2 / $3 $4 / $5 $6 / $7 $8"
 	fi
 	;;
 
 mediatek/*|airoha/*)
-	set -- $(top -bn1 2>/dev/null | awk 'NR==2 {print $2, $4}')
-	usr="${1:-?}"
-	sys="${2:-?}"
-
-	output="USR: ${usr} SYS: ${sys}"
+	output="USR: ${cpu_usr}% SYS: ${cpu_sys}%"
 
 	for ppe in /sys/kernel/debug/ppe*/entries; do
 		[ -f "$ppe" ] || continue
@@ -53,10 +54,10 @@ mediatek/*|airoha/*)
 		output="${output} ${name}: ${1} (IPv4: ${2} IPv6: ${3})"
 	done
 
-	echo -n "CPU: ${cpu_usage}% $output"
+	echo "CPU: ${cpu_usage}% ${output}"
 	;;
 
 *)
-	echo -n "CPU: ${cpu_usage}%"
+	echo "CPU: ${cpu_usage}%"
 	;;
 esac

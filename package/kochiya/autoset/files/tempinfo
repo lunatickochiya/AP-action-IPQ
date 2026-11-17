@@ -1,30 +1,136 @@
 #!/bin/sh
+# 温度信息：CPU / NSS / WiFi / PHY
+#
+# 输出多行文本（一行一类传感器），每项带传感器名，供
+# /usr/libexec/autoset/sysinfo 转义后给概览页「温度」行使用。
+#
+# 与旧版的区别：
+#   1. CPU 不再固定读 thermal_zone0，而是按 type 找 cpu-thermal
+#      （IPQ6018/IPQ6000 上 zone0 是 nss-top-thermal，不是 CPU）；
+#   2. WiFi 温度带 phy 编号和频段（5G/2.4G/6G），SoC PHY 温度单独一行；
+#   3. 每一项都标注来源传感器名，不再是 4 个无标签数字。
 
-. /etc/openwrt_release
-
-IEEE_PATH="/sys/class/ieee80211"
 THERMAL_PATH="/sys/class/thermal"
+IEEE_PATH="/sys/class/ieee80211"
 
-cpu_temp=""
-[ -r "$THERMAL_PATH/thermal_zone0/temp" ] && \
-	cpu_temp="$(awk '{printf("%.1f°C", $0 / 1000)}' "$THERMAL_PATH/thermal_zone0/temp" 2>"/dev/null")"
+# 毫摄氏度 -> xx.x
+read_temp() {
+	[ -r "$1" ] || return 1
+	awk '{printf "%.1f", $0 / 1000}' "$1" 2>"/dev/null"
+}
 
-# WiFi 温度：
-#   1) 无线驱动注册的 hwmon（ath11k/ath12k/mt76 等，多种挂载路径都试）
-#   2) 名称含 wifi/wlan/wireless/phy/radio 的 thermal zone
-wifi_temp=""
+# 按 thermal zone 的 type 精确取温度
+zone_temp() {
+	local z t
+
+	for z in "$THERMAL_PATH"/thermal_zone*; do
+		[ -r "$z/temp" ] || continue
+		t="$(cat "$z/type" 2>"/dev/null")"
+		[ "$t" = "$1" ] || continue
+
+		read_temp "$z/temp"
+		return 0
+	done
+
+	return 1
+}
+
+# phy0/phy1 -> 5G/2.4G/6G（拿不到就留空，不影响温度显示）
+phy_band() {
+	local phy="$1" net ifname freq
+
+	command -v iw >/dev/null 2>&1 || return 0
+
+	for net in /sys/class/net/*; do
+		[ "$(cat "$net/phy80211/name" 2>"/dev/null")" = "$phy" ] || continue
+
+		ifname="$(basename "$net")"
+		freq="$(iw dev "$ifname" info 2>"/dev/null" |
+			sed -n 's/.*channel [0-9]* (\([0-9]*\) MHz).*/\1/p' |
+			head -n1)"
+
+		case "$freq" in
+			''|*[!0-9]*) return 0 ;;
+		esac
+
+		if [ "$freq" -ge 5925 ]; then
+			echo "6G"
+		elif [ "$freq" -ge 4900 ]; then
+			echo "5G"
+		elif [ "$freq" -ge 2400 ]; then
+			echo "2.4G"
+		fi
+
+		return 0
+	done
+}
+
+printed=0
+
+# CPU：优先 cpu-thermal；没有则找 type 含 cpu 的 zone；最后才退回 zone0
+cpu_type=""
+cpu_temp="$(zone_temp cpu-thermal)" && cpu_type="cpu-thermal"
+if [ -z "$cpu_temp" ]; then
+	for z in "$THERMAL_PATH"/thermal_zone*; do
+		[ -r "$z/temp" ] || continue
+		t="$(cat "$z/type" 2>"/dev/null")"
+		case "$t" in
+			*cpu*)
+				cpu_temp="$(read_temp "$z/temp")"
+				cpu_type="$t"
+				break
+				;;
+		esac
+	done
+fi
+if [ -z "$cpu_temp" ] && [ -r "$THERMAL_PATH/thermal_zone0/temp" ]; then
+	cpu_type="$(cat "$THERMAL_PATH/thermal_zone0/type" 2>"/dev/null")"
+	cpu_temp="$(read_temp "$THERMAL_PATH/thermal_zone0/temp")"
+fi
+if [ -n "$cpu_temp" ]; then
+	echo "CPU: ${cpu_temp}°C (${cpu_type:-thermal_zone0})"
+	printed=1
+fi
+
+# NSS：nss-top / nss 等
+nss_line=""
+for z in "$THERMAL_PATH"/thermal_zone*; do
+	[ -r "$z/temp" ] || continue
+	t="$(cat "$z/type" 2>"/dev/null")"
+	case "$t" in
+		nss*)
+			v="$(read_temp "$z/temp")"
+			[ -n "$v" ] && nss_line="${nss_line:+$nss_line / }${v}°C (${t})"
+			;;
+	esac
+done
+if [ -n "$nss_line" ]; then
+	echo "NSS: $nss_line"
+	printed=1
+fi
+
+# WiFi：驱动注册的 hwmon（ath11k/ath12k/mt76 等），带 phy 编号和频段
+wifi_line=""
 wifi_seen=""
 
 add_wifi_temp() {
-	[ -r "$1" ] || return 0
+	local p="$1" phy band v rp
 
-	rp="$(readlink -f "$1" 2>"/dev/null")"
-	[ -n "$rp" ] || rp="$1"
-	case " $wifi_seen " in *" $rp "*) return 0 ;; esac
+	[ -r "$p" ] || return 0
+
+	rp="$(readlink -f "$p" 2>"/dev/null")"
+	[ -n "$rp" ] || rp="$p"
+	case " $wifi_seen " in
+		*" $rp "*) return 0 ;;
+	esac
 	wifi_seen="$wifi_seen $rp"
 
-	t="$(awk '{printf("%.1f°C", $0 / 1000)}' "$1" 2>"/dev/null")"
-	[ -n "$t" ] && wifi_temp="${wifi_temp:+$wifi_temp }$t"
+	phy="$(echo "$p" | sed -n 's#.*/\(phy[0-9][0-9]*\)/.*#\1#p')"
+	[ -n "$phy" ] || phy="wifi"
+	band="$(phy_band "$phy")"
+
+	v="$(read_temp "$p")"
+	[ -n "$v" ] && wifi_line="${wifi_line:+$wifi_line / }${band:+$band }${v}°C (${phy})"
 }
 
 for p in "$IEEE_PATH"/phy*/hwmon*/temp1_input \
@@ -33,25 +139,26 @@ for p in "$IEEE_PATH"/phy*/hwmon*/temp1_input \
          "$IEEE_PATH"/wl*/hwmon*/temp1_input; do
 	add_wifi_temp "$p"
 done
+if [ -n "$wifi_line" ]; then
+	echo "WiFi: $wifi_line"
+	printed=1
+fi
 
+# SoC WiFi PHY（wcss-phya0 / wcss-phya1 等），和上面的射频温度是不同传感器
+phy_line=""
 for z in "$THERMAL_PATH"/thermal_zone*; do
 	[ -r "$z/temp" ] || continue
-
-	zt="$(cat "$z/type" 2>"/dev/null")"
-	case "$zt" in
-		*wifi*|*wlan*|*wireless*|*phy*|*radio*) ;;
-		*) continue ;;
+	t="$(cat "$z/type" 2>"/dev/null")"
+	case "$t" in
+		*wifi*|*wlan*|*wireless*|*phy*|*radio*)
+			v="$(read_temp "$z/temp")"
+			[ -n "$v" ] && phy_line="${phy_line:+$phy_line / }${v}°C (${t})"
+			;;
 	esac
-
-	add_wifi_temp "$z/temp"
 done
-
-if [ -n "$cpu_temp" ] && [ -n "$wifi_temp" ]; then
-	echo -n "CPU: $cpu_temp, WiFi: $wifi_temp"
-elif [ -n "$cpu_temp" ]; then
-	echo -n "CPU: $cpu_temp"
-elif [ -n "$wifi_temp" ]; then
-	echo -n "WiFi: $wifi_temp"
-else
-	echo -n "No temperature info"
+if [ -n "$phy_line" ]; then
+	echo "PHY: $phy_line"
+	printed=1
 fi
+
+[ "$printed" -eq 1 ] || echo "No temperature info"
