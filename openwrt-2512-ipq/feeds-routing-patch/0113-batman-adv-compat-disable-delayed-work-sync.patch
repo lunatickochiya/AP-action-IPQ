@@ -1,0 +1,19 @@
+diff --git a/batman-adv/patches/0113-batman-adv-compat-disable-delayed-work-sync.patch b/batman-adv/patches/0113-batman-adv-compat-disable-delayed-work-sync.patch
+new file mode 100644
+index 0000000..6b96985
+--- /dev/null
++++ b/batman-adv/patches/0113-batman-adv-compat-disable-delayed-work-sync.patch
+@@ -0,0 +1,13 @@
++--- a/net/batman-adv/main.c
+++++ b/net/batman-adv/main.c
++@@ -34,6 +34,10 @@
++ #include <linux/stddef.h>
++ #include <linux/string.h>
++ #include <linux/workqueue.h>
+++
+++#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0))
+++#define disable_delayed_work_sync cancel_delayed_work_sync
+++#endif
++ #include <net/dsfield.h>
++ #include <net/genetlink.h>
++ #include <net/rtnetlink.h>
