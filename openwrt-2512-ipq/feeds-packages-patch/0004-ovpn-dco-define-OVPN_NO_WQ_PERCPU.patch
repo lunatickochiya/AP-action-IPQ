@@ -1,0 +1,29 @@
+From: lunatickochiya <125438787@qq.com>
+Date: Fri, 6 Nov 2026 00:00:00 +0800
+Subject: [PATCH] ovpn-dco: define OVPN_NO_WQ_PERCPU for Linux 6.6
+
+ovpn-backports 7.3.0 uses WQ_PERCPU, which only exists in Linux 6.7+.
+The upstream Makefile detects it in the top-level Makefile, but
+OpenWrt builds only drivers/net/ovpn with M=..., so that ccflags-y is
+never applied and the module fails with:
+
+  drivers/net/ovpn/main.c:325:43: error: 'WQ_PERCPU' undeclared
+
+Pass OVPN_NO_WQ_PERCPU through NOSTDINC_FLAGS; the package's
+compat-include/linux/workqueue.h then defines WQ_PERCPU as 0, which is
+the pre-6.7 behavior (CPU-bound workqueues are the default).
+
+---
+diff --git a/kernel/ovpn-dco/Makefile b/kernel/ovpn-dco/Makefile
+index 8fb1b6d..9b5d3b7 100644
+--- a/kernel/ovpn-dco/Makefile
++++ b/kernel/ovpn-dco/Makefile
+@@ -48,6 +48,8 @@ NOSTDINC_FLAGS += \
+ 	-I$(PKG_BUILD_DIR)/compat-include \
+ 	-include $(PKG_BUILD_DIR)/linux-compat.h
+ 
++NOSTDINC_FLAGS += -DOVPN_NO_WQ_PERCPU
++
+ EXTRA_KCONFIG:= \
+ 	CONFIG_OVPN=m
+ 
